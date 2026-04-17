@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main":"dist/electron/main.js",
+  "main": "dist/electron/main.js",
   "scripts": {
     "dev": "vite",
     "electron:dev": "vite",
@@ -14,13 +14,17 @@
     "electron:build": "vite build && electron-builder"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@techstark/opencv-js": "4.12.0-release.1",
+    "element-plus": "^2.13.7",
+    "fabric": "^7.2.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.31",
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
-    "@types/electron": "^27.0.0",
+    "@types/fabric": "^5.3.11",
     "@types/node": "^24.12.0",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vue/tsconfig": "^0.9.1",
@@ -36,17 +40,21 @@
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
-  "build":{
-    "appId":"com.rockcore.analysis",
-    "productName":"岩心孔洞分析软件",
-    "directories":{
-      "output":"release"
+  "build": {
+    "appId": "com.rockcore.analysis",
+    "productName": "岩心孔洞分析软件",
+    "directories": {
+      "output": "release"
     },
-    "asar":true,
-    "files":["dist/**/*"],
-    "win":{
-      "target":"nsis",
-      "arch":["x64"]
-     }
+    "asar": true,
+    "files": [
+      "dist/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "arch": [
+        "x64"
+      ]
+    }
   }
 }
