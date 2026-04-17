@@ -6,6 +6,10 @@
     },
     {
       "path": "./tsconfig.app.json"
+    },
+    // 新增：引用Electron主进程的TS配置
+    {
+      "path": "./electron/tsconfig.json"
     }
   ]
 }

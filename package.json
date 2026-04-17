@@ -1,14 +1,17 @@
 {
-  "name": "rock",
+  "name": "rock-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main":"dist/electron/main.js",
   "scripts": {
     "dev": "vite",
+    "electron:dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build"
+    "type-check": "vue-tsc --build",
+    "electron:build": "vite build && electron-builder"
   },
   "dependencies": {
     "pinia": "^3.0.4",
@@ -17,16 +20,33 @@
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
+    "@types/electron": "^27.0.0",
     "@types/node": "^24.12.0",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vue/tsconfig": "^0.9.1",
+    "electron": "31.0.2",
+    "electron-builder": "24.13.3",
     "npm-run-all2": "^8.0.4",
     "typescript": "~6.0.0",
     "vite": "^8.0.3",
+    "vite-plugin-electron": "0.28.7",
     "vite-plugin-vue-devtools": "^8.1.1",
     "vue-tsc": "^3.2.6"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
+  },
+  "build":{
+    "appId":"com.rockcore.analysis",
+    "productName":"岩心孔洞分析软件",
+    "directories":{
+      "output":"release"
+    },
+    "asar":true,
+    "files":["dist/**/*"],
+    "win":{
+      "target":"nsis",
+      "arch":["x64"]
+     }
   }
 }
