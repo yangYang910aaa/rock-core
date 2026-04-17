@@ -26,5 +26,15 @@ export default defineConfig({
     },
   },
   //适配electron应用的相对路径
-  base: process.env.NODE_ENV === 'development' ? '/' : './'
+  base: process.env.NODE_ENV === 'development' ? '/' : './',
+   build: {
+    rollupOptions: {
+      // 把Electron和Node内置模块标记为外部模块，不参与前端打包
+      external: ['electron', 'path', 'fs', 'os'],
+    },
+  },
+  optimizeDeps: {
+    // 不预构建electron模块，避免Vite处理异常
+    exclude: ['electron'],
+  },
 })
