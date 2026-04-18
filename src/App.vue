@@ -2,11 +2,16 @@
   <div class="app-container">
     <!-- 一体化标题栏菜单 -->
     <TitleBar />
+    <!-- 主内容区,图片画布组件 -->
+     <div class="main-content">
+      <ImageCanvas />
+     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import TitleBar from '@/components/TitleBar.vue'
+import ImageCanvas from '@/components/ImageCanvas.vue'
 </script>
 
 <style scoped>

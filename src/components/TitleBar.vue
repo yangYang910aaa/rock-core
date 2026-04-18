@@ -59,18 +59,29 @@
 </template>
 
 <script setup lang="ts">
+import { useImageStore } from '@/stores/imageStore'
+
 // 渲染进程正确导入ipcRenderer
 const { ipcRenderer } = window.require('electron')
-
+const imageStore=useImageStore()
 // 窗口控制函数
 const handleMin = () => ipcRenderer.send('window-min')
 const handleMax = () => ipcRenderer.send('window-max')
 const handleClose = () => ipcRenderer.send('window-close')
 
-// 打开岩心图片函数（后续会完善功能，先预留）
-const handleOpenImage = () => {
-  console.log('点击打开岩心图片')
-  // 后续会在这里实现文件选择对话框的逻辑
+// 打开岩心图片函数
+const handleOpenImage = async() => {
+    try {
+        const result=await  ipcRenderer.invoke('open-image-dialog')
+        if(!result){
+            return
+        }
+        //更新Store状态
+        imageStore.setImage(result.filePath,result.dataUrl)
+        console.log('成功打开图片',result.filePath)
+    } catch (error) {
+        console.error('打开图片失败:', error)
+    }
 }
 </script>
 
