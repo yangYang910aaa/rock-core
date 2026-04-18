@@ -8,7 +8,7 @@
 
     <!-- 可滚动的参数&结果区域：核心优化右内边距，给右侧留足留白 -->
     <div class="panel-content">
-      <el-collapse v-model="activeNames" accordion>
+      <el-collapse v-model="activeNames">
         <!-- 阈值设置面板 -->
         <el-collapse-item title="阈值设置" name="1">
           <el-form label-width="80px" size="default" class="panel-form">
@@ -41,7 +41,7 @@
 import { ref } from 'vue'
 
 // 响应式数据
-const activeNames = ref<string[]>(['1'])
+const activeNames = ref<string[]>(['1','2'])
 const minThreshold = ref<number>(0)
 const maxThreshold = ref<number>(128)
 
