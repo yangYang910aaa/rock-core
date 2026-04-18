@@ -2,7 +2,7 @@
   <div class="left-sidebar">
     <!-- 可滚动的内容区域 -->
     <div class="sidebar-content">
-      <el-collapse v-model="activeNames" accordion>
+      <el-collapse v-model="activeNames">
         <!-- 标尺设置面板 -->
         <el-collapse-item title="标尺设置" name="1">
           <el-radio-group v-model="scaleType" type="button" class="scale-radio-group">
@@ -11,14 +11,14 @@
           </el-radio-group>
         </el-collapse-item>
 
-        <!-- 图像预处理面板：修复按钮样式 -->
+        <!-- 图像预处理面板：修复按钮样式:为每个按钮添加div容器 -->
         <el-collapse-item title="图像预处理" name="2">
           <div class="preprocess-btns">
-            <el-button class="sidebar-btn">自动色阶</el-button>
-            <el-button class="sidebar-btn">灰度化</el-button>
-            <el-button class="sidebar-btn">亮度/对比度</el-button>
-            <el-button class="sidebar-btn">滤波平滑</el-button>
-            <el-button class="sidebar-btn">边缘检测</el-button>
+            <div class="btn-wrapper"><el-button class="sidebar-btn">自动色阶</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn">灰度化</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn">亮度/对比度</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn">滤波平滑</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn">边缘检测</el-button></div>
           </div>
         </el-collapse-item>
 
@@ -29,7 +29,9 @@
             <el-radio-button label="crack">裂缝分析</el-radio-button>
             <el-radio-button label="size">粒度分析</el-radio-button>
           </el-radio-group>
-          <el-button type="primary" class="sidebar-btn start-btn" size="default">开始提取</el-button>
+          <div class="btn-wrapper">
+            <el-button type="primary" class="sidebar-btn start-btn" size="default">开始提取</el-button>
+          </div>
         </el-collapse-item>
       </el-collapse>
     </div>
@@ -120,20 +122,29 @@ const analysisMode = ref<string>('hole')
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 100%; /* 新增：确保容器宽度100% */
-  box-sizing: border-box; /* 新增：防止padding导致溢出 */
+  width: 100%;
+  box-sizing: border-box; 
 }
+.btn-wrapper{
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden; /* 新增：防止按钮内容超出容器 */
+}
+/* 强制重置所有宽度相关属性 */
 .sidebar-btn {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
   height: 44px;
   line-height: 42px;
   font-size: 15px;
   border-radius: 6px;
-  width: 100%;
-  box-sizing: border-box; /* 关键：确保border/padding计入宽度 */
+  box-sizing: border-box !important;
   padding: 0 12px; /* 新增：统一内边距，避免文字贴边 */
+  margin: 0 
 }
 .start-btn {
-  margin-top: 16px;
+  margin-top: 0 !important;/*清除之前的margin,用wrapper包裹*/
 }
 
 /* 折叠面板样式统一 */
