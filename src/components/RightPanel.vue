@@ -6,31 +6,95 @@
       <el-button type="warning" block class="panel-btn"><el-icon><Refresh /></el-icon>重置分析</el-button>
     </div>
 
-    <!-- 可滚动的参数&结果区域：核心优化右内边距，给右侧留足留白 -->
+    <!-- 可滚动的参数&结果区域 -->
     <div class="panel-content">
       <el-collapse v-model="activeNames">
-        <!-- 阈值设置面板 -->
+        <!-- 阈值设置面板 :根据分析模式动态显示-->
         <el-collapse-item title="阈值设置" name="1">
-          <el-form label-width="80px" size="default" class="panel-form">
-            <el-form-item label="最小阈值">
-              <el-slider v-model="minThreshold" :min="0" :max="255" class="panel-slider" />
-            </el-form-item>
-            <el-form-item label="最大阈值">
-              <el-slider v-model="maxThreshold" :min="0" :max="255" class="panel-slider" />
-            </el-form-item>
-          </el-form>
-        </el-collapse-item>
+          <!-- 孔洞分析阈值 -->
+          <template v-if="analysisStore.currentMode === 'hole'">
+            <el-form label-width="90px" size="default" class="panel-form">
+              <el-form-item label="颜色匹配度">
+                <el-slider v-model="analysisStore.holeThreshold.colorMatch" :min="0" :max="100" class="panel-slider" />
+              </el-form-item>
+              <el-form-item label="最小阈值">
+                <el-slider v-model="analysisStore.holeThreshold.minThreshold" :min="0" :max="255" class="panel-slider" />
+              </el-form-item>
+              <el-form-item label="最大阈值">
+                <el-slider v-model="analysisStore.holeThreshold.maxThreshold" :min="0" :max="255" class="panel-slider" />
+              </el-form-item>
+            </el-form>
+          </template>
+          <!-- 裂缝分析阈值 -->
+          <template v-else-if="analysisStore.currentMode === 'crack'">
+            <el-form label-width="90px" size="default" class="panel-form">
+              <el-form-item label="最小宽度">
+                <el-input-number v-model="analysisStore.crackThreshold.minWidth" :min="0" :step="0.1" style="width: 100%;" />
+              </el-form-item>
+              <el-form-item label="最大宽度">
+                <el-input-number v-model="analysisStore.crackThreshold.maxWidth" :min="0" :step="0.1" style="width: 100%;" />
+              </el-form-item>
+              <el-form-item label="最小长度">
+                <el-input-number v-model="analysisStore.crackThreshold.minLength" :min="0" :step="1" style="width: 100%;" />
+              </el-form-item>
+            </el-form>
+          </template>
+          <!-- 粒度分析阈值 -->
+           <template v-else-if="analysisStore.currentMode === 'size'">
+            <el-form label-width="90px" size="default" class="panel-form">
+              <el-form-item label="最小粒径">
+                <el-input-number v-model="analysisStore.sizeThreshold.minSize" :min="0" :step="0.1" style="width: 100%;" />
+              </el-form-item>
+              <el-form-item label="最大粒径">
+                <el-input-number v-model="analysisStore.sizeThreshold.maxSize" :min="0" :step="0.1" style="width: 100%;" />
+              </el-form-item>
+              <el-form-item label="分级数">
+                <el-input-number v-model="analysisStore.sizeThreshold.gradeCount" :min="2" :max="10" :step="1" style="width: 100%;" />
+              </el-form-item>
+            </el-form>
+           </template>
+          </el-collapse-item>
 
-        <!-- 分析结果面板 -->
+        <!-- 分析结果面板:根据分析模式动态显示 -->
         <el-collapse-item title="分析结果" name="2">
-          <el-descriptions :column="1" size="default" border class="result-table">
-            <el-descriptions-item label="孔洞总数">{{ holeCount }}</el-descriptions-item>
-            <el-descriptions-item label="孔洞总面积">{{ totalArea }} mm²</el-descriptions-item>
-            <el-descriptions-item label="平均孔径">{{ avgDiameter }} mm</el-descriptions-item>
-            <el-descriptions-item label="最大孔径">{{ maxDiameter }} mm</el-descriptions-item>
-            <el-descriptions-item label="最小孔径">{{ minDiameter }} mm</el-descriptions-item>
-            <el-descriptions-item label="面孔率">{{ faceRate }} %</el-descriptions-item>
-          </el-descriptions>
+          <!-- 孔洞分析结果 -->
+          <template v-if="analysisStore.currentMode === 'hole'">
+            <el-descriptions :column="1" size="default" border class="result-table">
+              <el-descriptions-item label="孔洞总数">{{ analysisStore.holeResults.totalCount }}</el-descriptions-item>
+              <el-descriptions-item label="孔洞总面积">{{ analysisStore.holeResults.totalArea }} mm²</el-descriptions-item>
+              <el-descriptions-item label="平均孔径">{{ analysisStore.holeResults.avgDiameter }} mm</el-descriptions-item>
+              <el-descriptions-item label="最大孔径">{{ analysisStore.holeResults.maxDiameter }} mm</el-descriptions-item>
+              <el-descriptions-item label="最小孔径">{{ analysisStore.holeResults.minDiameter }} mm</el-descriptions-item>
+              <el-descriptions-item label="面孔率">{{ analysisStore.holeResults.faceRate }} %</el-descriptions-item>
+            </el-descriptions>
+          </template>
+          <!-- 裂缝分析结果 -->
+           <template v-else-if="analysisStore.currentMode === 'crack'">
+              <el-descriptions :column="1" size="default" border class="result-table">
+              <el-descriptions-item label="裂缝总数">{{ analysisStore.crackResults.totalCount }}</el-descriptions-item>
+              <el-descriptions-item label="裂缝总长度">{{ analysisStore.crackResults.totalLength }} mm</el-descriptions-item>
+              <el-descriptions-item label="平均宽度">{{ analysisStore.crackResults.avgWidth }} mm</el-descriptions-item>
+              <el-descriptions-item label="裂缝面孔率">{{ analysisStore.crackResults.faceRate }} %</el-descriptions-item>
+              <el-descriptions-item label="线密度">{{ analysisStore.crackResults.lineDensity }} 条/m</el-descriptions-item>
+              <el-descriptions-item label="面密度">{{ analysisStore.crackResults.areaDensity }} m/m²</el-descriptions-item>
+            </el-descriptions>
+           </template>
+
+           <!-- 粒度分析结果 -->
+            <template v-else-if="analysisStore.currentMode === 'size'">
+                 <el-descriptions :column="1" size="default" border class="result-table">
+              <el-descriptions-item label="平均粒径">{{ analysisStore.sizeResults.avgSize }} mm</el-descriptions-item>
+              <el-descriptions-item label="分选系数">{{ analysisStore.sizeResults.sortingCoefficient }}</el-descriptions-item>
+              <el-descriptions-item label="粒度分布">
+                <div v-if="analysisStore.sizeResults.distribution.length > 0">
+                  <div v-for="(item, index) in analysisStore.sizeResults.distribution" :key="index" style="font-size: 12px; margin-bottom: 4px;">
+                    第{{ index + 1 }}级: {{ item }}%
+                  </div>
+                </div>
+                <div v-else>暂无数据</div>
+              </el-descriptions-item>
+            </el-descriptions>
+            </template>
         </el-collapse-item>
       </el-collapse>
     </div>
@@ -39,19 +103,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-
-// 响应式数据
-const activeNames = ref<string[]>(['1','2'])
-const minThreshold = ref<number>(0)
-const maxThreshold = ref<number>(128)
-
-// 分析结果数据
-const holeCount = ref<number>(0)
-const totalArea = ref<number>(0)
-const avgDiameter = ref<number>(0)
-const maxDiameter = ref<number>(0)
-const minDiameter = ref<number>(0)
-const faceRate = ref<number>(0)
+import { DocumentAdd, Refresh } from '@element-plus/icons-vue'
+import {useAnalysisStore} from '@/stores/analysisStore'
+const analysisStore = useAnalysisStore()
+const activeNames = ref<string[]>(['1','2'])//默认展开阈值设置和分析结果
 </script>
 
 <style scoped>

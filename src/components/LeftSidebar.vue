@@ -70,11 +70,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-// 响应式数据
+import { ref,watch } from 'vue'
+import { useAnalysisStore, type AnalysisMode } from '@/stores/analysisStore'
+const analysisStore=useAnalysisStore()
 const activeNames = ref<string[]>(['1']) // 标尺设置面板默认展开
 const scaleType = ref<'macro' | 'micro'>('macro') // 标尺类型，默认宏观
-const analysisMode = ref<string>('hole') // 分析模式，默认孔洞分析
+const analysisMode = ref<AnalysisMode>('hole') // 分析模式，默认孔洞分析
+// 监听分析模式变化,同步到Store
+watch(analysisMode,(newMode)=>{
+  analysisStore.setMode(newMode)
+})
 </script>
 
 <style scoped>
