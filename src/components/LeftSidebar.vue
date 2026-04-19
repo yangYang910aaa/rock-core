@@ -14,15 +14,15 @@
         <!-- 图像预处理面板：补充文档要求的缺失功能 -->
         <el-collapse-item title="图像预处理" name="2">
           <div class="preprocess-btns">
-            <div class="btn-wrapper"><el-button class="sidebar-btn">自动色阶</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">曲线调节</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">灰度化</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">亮度/对比度</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">饱和度调节</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">滤波平滑</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">锐化</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">边缘检测</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">底片效果</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('autoLevels')">自动色阶</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('curveAdjust')">曲线调节</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('grayscale')">灰度化</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('brightnessContrast')">亮度/对比度</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('saturation')">饱和度调节</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('filterSmooth')">滤波平滑</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('sharpen')">锐化</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('edgeDetect')">边缘检测</el-button></div>  
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('negativeEffect')">底片效果</el-button></div>
           </div>
         </el-collapse-item>
 
@@ -71,15 +71,24 @@
 
 <script setup lang="ts">
 import { ref,watch } from 'vue'
-import { useAnalysisStore, type AnalysisMode } from '@/stores/analysisStore'
+import { useAnalysisStore, type AnalysisMode,type PreprocessType } from '@/stores/analysisStore'
+import { useImageStore } from '@/stores/imageStore'
+
 const analysisStore=useAnalysisStore()
+const imageStore=useImageStore()
+
 const activeNames = ref<string[]>(['1']) // 标尺设置面板默认展开
 const scaleType = ref<'macro' | 'micro'>('macro') // 标尺类型，默认宏观
 const analysisMode = ref<AnalysisMode>('hole') // 分析模式，默认孔洞分析
+//处理图像预处理的点击事件
+const handlePreprocess=(type:PreprocessType)=>{
+    imageStore.executeProcess(type)
+}
 // 监听分析模式变化,同步到Store
 watch(analysisMode,(newMode)=>{
   analysisStore.setMode(newMode)
 })
+
 </script>
 
 <style scoped>

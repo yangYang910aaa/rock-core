@@ -8,28 +8,48 @@
 
         <!-- 图片显示区域 -->
          <div class="image-container" v-else>
-            <img :src="currentImageDataUrl" alt="岩心图片" class="core-image" @load="onImageload" @error="onImageError">
+            <img :src="displayImageDataUrl" alt="岩心图片" class="core-image" @load="onImageLoad" @error="onImageError">
             <div class="image-info">
                 <span class="image-item">文件路径:{{ currentImagePath}}</span>
+                  <span class="image-tag" v-if="isImageProcessed" style="margin-left: 12px; color: #67c23a;">
+                      <el-icon><Check /></el-icon> 已处理
+                   </span>
+                  <span class="image-tag" v-if="isProcessing" style="margin-left: 12px; color: #e6a23c;">
+                      <el-icon><Loading /></el-icon> 处理中...
+                  </span>
             </div>
          </div>
     </div>
 </template>
 <script setup lang="ts">
-import { PictureFilled } from '@element-plus/icons-vue';
+import { PictureFilled,Check,Loading } from '@element-plus/icons-vue';
 import { useImageStore } from '@/stores/imageStore'
 import { storeToRefs } from 'pinia';
+import { computed,onMounted } from 'vue';
+
+//引入Store
 const imageStore = useImageStore()
-const {currentImagePath,currentImageDataUrl,isImageLoaded}=storeToRefs(imageStore)
-// 图片加载成功回调
-const onImageload=()=>{
-  console.log('图片渲染成功',currentImagePath.value)
+
+//解构Store的状态
+const {currentImagePath,isImageLoaded,isImageProcessed,isProcessing}=storeToRefs(imageStore)
+
+//显示的图片:优先显示处理后的图片,没有处理则显示原始图片
+const displayImageDataUrl=computed(()=>{
+  return imageStore.isImageProcessed?imageStore.processedImageDataUrl:imageStore.currentImageDataUrl
+})
+//组件挂载时初始化OpenCV.js
+onMounted(()=>{
+  imageStore.initOpenCV()
+})
+// 图片加载回调
+const onImageLoad = () => {
+  console.log('✅ 图片渲染成功', currentImagePath.value)
 }
-// 图片加载失败回调
-const onImageError = (e:Event) => {
-  console.error('图片渲染失败！', e)
-  console.log('当前图片DataURL：', currentImageDataUrl.value)
+const onImageError = (e: Event) => {
+  console.error('❌ 图片渲染失败！', e)
 }
+
+
 </script>
 <style scoped>
 .image-canvas-wrapper {
@@ -75,18 +95,25 @@ const onImageError = (e:Event) => {
   border-radius: 4px;
 }
 
-/* 【修复】路径信息样式，深色文字+白色背景，清晰可见 */
 .image-info {
   margin-top: 16px;
   padding: 8px 16px;
   background-color: #fff;
   border: 1px solid #e4e7ed;
   border-radius: 4px;
-  color: #606266; /* 深色文字，和浅灰背景完全区分 */
+  color: #606266;
   font-size: 12px;
   max-width: 90%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+.image-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
 }
 </style>

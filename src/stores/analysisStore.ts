@@ -3,9 +3,24 @@ import {ref} from 'vue'
 
 //定义分析模式类型
 export type AnalysisMode='hole'|'crack'|'size' //孔洞、裂缝、粒度
+//定义图像预处理的操作类型
+export type PreprocessType=
+| 'autoLevels' //自动色阶
+| 'curveAdjust'//曲线调节
+| 'grayscale' //灰度化
+| 'brightnessContrast' //亮度/对比度调整
+| 'saturation' //饱和度调节
+| 'filterSmooth' //滤波平滑
+| 'sharpen' //锐化
+| 'edgeDetect' //边缘检测
+| 'negativeEffect' //底片效果
+
 export const useAnalysisStore=defineStore('analysis',()=>{
 //1.核心状态:当前分析模式
     const currentMode=ref<AnalysisMode>('hole')//默认孔洞分析
+    //图像预处理状态
+    const currentPreprocess=ref<PreprocessType|null>(null) //当前执行的预处理操作
+    const preprocessHistory=ref<PreprocessType[]>([]) //预处理操作历史
 //2.阈值设置状态(根据模式动态变化)
     //孔洞分析阈值
     const holeThreshold=ref({
@@ -55,6 +70,17 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         currentMode.value=mode
         console.log(`切换到${mode}分析模式`)
     }
+    //执行图像预处理操作
+    const executePreprocess=(type:PreprocessType)=>{
+        currentPreprocess.value=type
+        preprocessHistory.value.push(type)
+        console.log(`执行图像预处理操作:${type}`)
+    }
+    //清空预处理操作历史
+    const clearPreprocessHistory=()=>{
+        preprocessHistory.value=[]
+        currentPreprocess.value=null
+    }
     return{
         currentMode,
         holeThreshold,
@@ -64,5 +90,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         crackResults,
         sizeResults,
         setMode,
+        currentPreprocess,
+        preprocessHistory,
+        executePreprocess,
+        clearPreprocessHistory
     }
 })
