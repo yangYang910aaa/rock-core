@@ -2,8 +2,8 @@
   <div class="right-panel">
     <!-- 顶部操作按钮：保持不变，已经对齐 -->
     <div class="action-btns">
-      <el-button type="danger" block class="panel-btn"><el-icon><DocumentAdd /></el-icon>生成分析报告</el-button>
-      <el-button type="warning" block class="panel-btn"><el-icon><Refresh /></el-icon>重置分析</el-button>
+      <el-button type="danger" block class="panel-btn" @click="handleGenerateReport"><el-icon><DocumentAdd /></el-icon>生成分析报告</el-button>
+      <el-button type="warning" block class="panel-btn" @click="handleReset"><el-icon><Refresh /></el-icon>重置分析</el-button>
     </div>
 
     <!-- 可滚动的参数&结果区域 -->
@@ -105,8 +105,22 @@
 import { ref } from 'vue'
 import { DocumentAdd, Refresh } from '@element-plus/icons-vue'
 import {useAnalysisStore} from '@/stores/analysisStore'
+import {useImageStore} from '@/stores/imageStore'
+import { ElMessage } from 'element-plus'
+
 const analysisStore = useAnalysisStore()
+const imageStore = useImageStore()
+
 const activeNames = ref<string[]>(['1','2'])//默认展开阈值设置和分析结果
+//重置按钮点击事件
+const handleReset=()=>{
+  imageStore.resetImage()
+  ElMessage.success('重置成功')
+}
+//生成分析报告点击事件
+const handleGenerateReport=()=>{
+  ElMessage.success('生成分析报告成功')
+}
 </script>
 
 <style scoped>
