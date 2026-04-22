@@ -39,11 +39,15 @@ export const useImageStore=defineStore('image',()=>{
   // ==========================================
   const cvReady=ref<boolean>(false) //OpenCV.js是否加载完成
   const isProcessing=ref<boolean>(false) //是否正在处理
+
   //状态:亮度/对比度调整参数
   const bcParams=ref<BrightContrastParams>({
     alpha:1.0,
     beta:0
   })
+  //状态:饱和度调整参数
+  const saturationFactor=ref<number>(1.0)
+
  // 临时 Canvas（用于 OpenCV.js 处理，不暴露给 UI）
   let inputCanvas:HTMLCanvasElement|null=null
   let outputCanvas:HTMLCanvasElement|null=null
@@ -58,6 +62,8 @@ export const useImageStore=defineStore('image',()=>{
         isImageLoaded.value=true
         processedImageDataUrl.value=dataUrl
         isImageProcessed.value=false
+        resetBCParams()
+        resetSaturationParams()
     }
     //操作:设置处理后的图片信息
     const setProcessedImage=(dataUrl:string)=>{
@@ -68,6 +74,8 @@ export const useImageStore=defineStore('image',()=>{
     const resetImage=()=>{
         processedImageDataUrl.value=currentImageDataUrl.value
         isImageProcessed.value=false
+        resetBCParams()
+        resetSaturationParams()
     }
     //重置全部
     const resetAll=()=>{
@@ -76,10 +84,16 @@ export const useImageStore=defineStore('image',()=>{
         processedImageDataUrl.value=''
         isImageLoaded.value=false
         isImageProcessed.value=false
+        resetBCParams()
+        resetSaturationParams()
     }
-    //重置亮度/对比度调整参数
+    //重置亮度/对比度调整参数,默认1.0,0
     const resetBCParams=()=>{
       bcParams.value={alpha:1.0,beta:0}
+    }
+    //重置饱和度调整参数,默认1.0
+    const resetSaturationParams=()=>{
+      saturationFactor.value=1.0
     }
   // ==========================================
   // 4. OpenCV.js 初始化
@@ -138,7 +152,7 @@ export const useImageStore=defineStore('image',()=>{
    * 通用辅助函数2：将处理后的 Mat 保存为图片并更新 Store
    * @param dst 处理后的 OpenCV Mat
    * @param src 原始 Mat（用于释放内存）
-   * @param processName 处理名称（用于日志）
+   * @param processName 处理名称
    */
   const saveMatToImage=(dst:cv.Mat,src:cv.Mat,processName:string)=>{
     if(!outputCanvas){
@@ -184,7 +198,10 @@ export const useImageStore=defineStore('image',()=>{
                 await executeSharpen()
                 break
             case 'brightnessContrast'://亮度对比度调整
-                await executeBrightnessContrast()
+                await executeBrightnessContrast(bcParams.value.alpha,bcParams.value.beta)
+                break
+            case 'saturation'://饱和度调节
+                await executeSaturation(saturationFactor.value)
                 break
             default:
                 ElMessage.error('该预处理操作暂未实现')
@@ -241,22 +258,41 @@ export const useImageStore=defineStore('image',()=>{
     saveMatToImage(dst,src,'滤波平滑')
   }
 
-  //自动色阶处理函数:根据图像直方图自动调整色阶
-  const executeAutoLevels=async()=>{
-    const {src}=await loadImageToMat()
-    const ycrcb=new cv.Mat()
-    const channels=new cv.MatVector()
-    const dst=new cv.Mat()
-    cv.cvtColor(src,ycrcb,cv.COLOR_RGB2YCrCb)
-    cv.split(ycrcb,channels)
-    cv.equalizeHist(channels.get(0),channels.get(0))
-    cv.merge(channels,ycrcb)
-    cv.cvtColor(ycrcb,dst,cv.COLOR_YCrCb2RGB)
-    saveMatToImage(dst,src,'自动色阶')
+// 自动色阶处理函数:根据图像直方图自动调整色阶
+const executeAutoLevels=async()=>{
+  const {src}=await loadImageToMat()
+  const bgrMat = new cv.Mat() // 新增：中间BGR Mat
+  const ycrcb=new cv.Mat()
+  const channels=new cv.MatVector()
+  const dst=new cv.Mat()
+  
+  try {
+    // 1. 先把 BGRA 转成 BGR（去掉透明通道）
+    cv.cvtColor(src, bgrMat, cv.COLOR_BGRA2BGR)
+    // 2. 再把 BGR 转成 YCrCb
+    cv.cvtColor(bgrMat, ycrcb, cv.COLOR_BGR2YCrCb)
+    cv.split(ycrcb, channels)
+    cv.equalizeHist(channels.get(0), channels.get(0))
+    cv.merge(channels, ycrcb)
+    // 转回 BGR
+    cv.cvtColor(ycrcb, dst, cv.COLOR_YCrCb2BGR)
+    saveMatToImage(dst, src, '自动色阶')
+    ElMessage.success('自动色阶完成')
+  } catch (error) {
+    // 异常时释放内存
+    src.delete()
+    bgrMat.delete()
     ycrcb.delete()
     channels.delete()
-    ElMessage.success('自动色阶完成')
+    dst.delete()
+    throw error
+  } finally {
+    // 释放中间变量内存
+    bgrMat.delete()
+    ycrcb.delete()
+    channels.delete()
   }
+}
 
   //锐化处理函数:自定义卷积核
   const executeSharpen=async()=>{
@@ -304,6 +340,56 @@ export const useImageStore=defineStore('image',()=>{
       throw error
     }
   }
+/**
+ * 8. 饱和度调节
+ * @param factor 饱和度系数（0.0 ~ 3.0，1.0=不变）
+ */
+const executeSaturation=async(factor: number = 1.0)=>{
+  const { src } = await loadImageToMat()
+  const bgrMat = new cv.Mat()
+  const hsvMat = new cv.Mat()
+  const channels = new cv.MatVector()
+  const dst = new cv.Mat()
+  
+  try {
+    //通道转换：BGRA → BGR（去掉透明通道，匹配OpenCV默认顺序）
+    cv.cvtColor(src, bgrMat, cv.COLOR_BGRA2BGR)
+    //BGR转HSV，用正确的转换码，通道顺序完全匹配
+    cv.cvtColor(bgrMat, hsvMat, cv.COLOR_BGR2HSV)
+    cv.split(hsvMat, channels)
+
+    // 类型安全校验
+    const sChannel = channels.get(1)!
+    if (sChannel.empty()) {
+      throw new Error('饱和度通道获取失败')
+    }
+
+    // 核心：OpenCV原生矩阵运算，1.0时完全不修改
+    sChannel.convertTo(sChannel, cv.CV_8U, factor, 0)
+
+    // 合并通道，转回BGR格式
+    cv.merge(channels, hsvMat)
+    cv.cvtColor(hsvMat, dst, cv.COLOR_HSV2BGR)
+
+    // 更新参数并保存结果
+    saturationFactor.value = factor
+    saveMatToImage(dst, src, '饱和度调节')
+    ElMessage.success(`饱和度调节完成（系数：${factor.toFixed(1)}）`)
+  } catch (error) {
+    // 异常时释放内存
+    src.delete()
+    bgrMat.delete()
+    hsvMat.delete()
+    channels.delete()
+    dst.delete()
+    throw error
+  } finally {
+    // 释放中间变量内存
+    bgrMat.delete()
+    hsvMat.delete()
+    channels.delete()
+  }
+}
   // ==========================================
   // 7. 暴露给组件的状态和方法
   // ==========================================
@@ -318,15 +404,18 @@ export const useImageStore=defineStore('image',()=>{
         cvReady,
         isProcessing,
         bcParams,
+        saturationFactor,
         //基础方法
         setImage,
         setProcessedImage,
         resetImage,
         resetAll,
         resetBCParams,
+        resetSaturationParams,
         //OpenCV方法
         initOpenCV,
         executeProcess,
-        executeBrightnessContrast
+        executeBrightnessContrast,
+        executeSaturation,
     }
 })

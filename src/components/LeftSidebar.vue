@@ -18,7 +18,7 @@
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('curveAdjust')">曲线调节</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('grayscale')">灰度化</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="openBCDialog">亮度/对比度</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('saturation')">饱和度调节</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="openSaturationDialog">饱和度调节</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('filterSmooth')">滤波平滑</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('sharpen')">锐化</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('edgeDetect')">边缘检测</el-button></div>  
@@ -66,6 +66,7 @@
       </el-collapse>
     </div>
   </div>
+  <!-- 亮度/对比度调整弹窗 -->
   <el-dialog v-model="bcDialogVisible" title="亮度/对比度调整" width="400px" destroy-on-close @close="imageStore.resetBCParams()"> 
     <div class="bc-adjust-panel">
       <!-- 对比度调节 -->
@@ -92,6 +93,24 @@
       <el-button type="primary" @click="confirmBCAdjust">确定应用</el-button>
     </template>
   </el-dialog>
+
+  <!-- 饱和度调整弹窗 -->
+  <el-dialog v-model="saturationDialogVisible" title="饱和度调整" width="400px" destroy-on-close @close="imageStore.resetSaturationParams()"> 
+    <div class="saturation-adjust-panel">
+      <div class="adjust-item">
+        <p class="adjust-tip">1.0=原始饱和度,大于1增强,小于1减弱,0为纯灰度</p>
+        <label class="adjust-label">
+          饱和度 ({{ imageStore.saturationFactor.toFixed(1) }})
+        </label>
+        <el-slider v-model="imageStore.saturationFactor" :min="0.0" :max="3.0" :step="0.1" show-input class="adjust-slider"/>
+      </div>
+    </div>
+    <template #footer>
+      <el-button type="danger"  @click="saturationDialogVisible=false">取消</el-button>
+      <el-button type="warning" @click="resetSaturationParams">重置参数</el-button>
+      <el-button type="primary" @click="confirmSaturationAdjust">确定应用</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -99,6 +118,7 @@ import { ref,watch } from 'vue'
 import { useAnalysisStore, type AnalysisMode,type PreprocessType } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
+import { open } from 'fs'
 
 const analysisStore=useAnalysisStore()
 const imageStore=useImageStore()
@@ -135,6 +155,23 @@ const confirmBCAdjust=async()=>{
     imageStore.bcParams.beta
   )
   bcDialogVisible.value=false
+}
+//饱和度弹窗状态
+const saturationDialogVisible = ref<boolean>(false)
+//打开饱和度弹窗
+const openSaturationDialog=()=>{
+  if(!imageStore.isImageLoaded){
+    ElMessage.warning('请先打开图片再进行调节')
+    return
+  }
+  saturationDialogVisible.value = true
+}
+const resetSaturationParams = () => {
+  imageStore.resetSaturationParams()
+}
+const confirmSaturationAdjust=async()=>{
+  await imageStore.executeSaturation(imageStore.saturationFactor)
+  saturationDialogVisible.value=false
 }
 </script>
 
