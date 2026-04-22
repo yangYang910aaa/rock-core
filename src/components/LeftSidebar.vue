@@ -17,7 +17,7 @@
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('autoLevels')">自动色阶</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('curveAdjust')">曲线调节</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('grayscale')">灰度化</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('brightnessContrast')">亮度/对比度</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="openBCDialog">亮度/对比度</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('saturation')">饱和度调节</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('filterSmooth')">滤波平滑</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handlePreprocess('sharpen')">锐化</el-button></div>
@@ -34,10 +34,9 @@
             <el-radio-button label="size">粒度分析</el-radio-button>
           </el-radio-group>
 
-          <!-- 新增：核心分析操作区 -->
-          <!-- 只需要修改「分析模式面板」里的 analysis-operate 部分 -->
+          <!-- 核心分析操作区 -->
         <div class="analysis-operate">
-          <!-- 分组1：提取操作（对应文档步骤五） -->
+          <!-- 分组1：提取操作 -->
           <div class="operate-group">
             <div class="group-title">提取操作</div>
             <div class="btn-wrapper"><el-button class="sidebar-btn">区域分割</el-button></div>
@@ -48,7 +47,7 @@
             </div>
           </div>
 
-        <!-- 分组2：二次编辑（对应文档步骤六~八） -->
+        <!-- 分组2：二次编辑 -->
           <div class="operate-group">
             <div class="group-title">二次编辑</div>
             <div class="btn-wrapper"><el-button class="sidebar-btn">区域去噪</el-button></div>
@@ -67,12 +66,39 @@
       </el-collapse>
     </div>
   </div>
+  <el-dialog v-model="bcDialogVisible" title="亮度/对比度调整" width="400px" destroy-on-close @close="imageStore.resetBCParams()"> 
+    <div class="bc-adjust-panel">
+      <!-- 对比度调节 -->
+      <div class="adjust-item">
+        <p class="adjust-tip">1.0=原始对比度,大于1增强,小于1减弱</p>
+        <label class="adjust-label">
+          对比度 ({{ imageStore.bcParams.alpha.toFixed(1) }})
+        </label>
+        <el-slider v-model="imageStore.bcParams.alpha" :min="0.0" :max="3.0" :step="0.1" show-input class="adjust-slider"/>
+      </div>
+           <!-- 亮度调节 -->
+      <div class="adjust-item">
+        <label class="adjust-label">
+          <p class="adjust-tip">0=原始亮度,大于0变亮,小于0变暗</p>
+          亮度 ({{ imageStore.bcParams.beta }})
+        </label>
+        <el-slider
+          v-model="imageStore.bcParams.beta" :min="-100" :max="100" :step="1" show-input class="adjust-slider"/>
+      </div>
+    </div>
+    <template #footer>
+      <el-button type="danger"  @click="bcDialogVisible=false">取消</el-button>
+      <el-button type="warning" @click="resetBCParams">重置参数</el-button>
+      <el-button type="primary" @click="confirmBCAdjust">确定应用</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref,watch } from 'vue'
 import { useAnalysisStore, type AnalysisMode,type PreprocessType } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
+import { ElMessage } from 'element-plus'
 
 const analysisStore=useAnalysisStore()
 const imageStore=useImageStore()
@@ -88,7 +114,28 @@ const handlePreprocess=(type:PreprocessType)=>{
 watch(analysisMode,(newMode)=>{
   analysisStore.setMode(newMode)
 })
-
+// 亮度/对比度弹窗状态
+const bcDialogVisible = ref<boolean>(false)
+// 打开亮度/对比度弹窗
+const openBCDialog = () => {
+  if(!imageStore.isImageLoaded){
+    ElMessage.warning('请先打开图片再进行调节')
+    return
+  }
+  bcDialogVisible.value = true
+}
+//重置亮度/对比度参数
+const resetBCParams = () => {
+  imageStore.resetBCParams()
+}
+// 确认应用亮度/对比度参数
+const confirmBCAdjust=async()=>{
+  await imageStore.executeBrightnessContrast(
+    imageStore.bcParams.alpha,
+    imageStore.bcParams.beta
+  )
+  bcDialogVisible.value=false
+}
 </script>
 
 <style scoped>
@@ -235,5 +282,27 @@ watch(analysisMode,(newMode)=>{
 }
 .sidebar-content::-webkit-scrollbar-track {
   background-color: #f5f7fa;
+}
+.bc-adjust-panel {
+  padding: 10px 0;
+}
+.adjust-item {
+  margin-bottom: 20px;
+}
+.adjust-label {
+  display: block;
+  font-size: 14px;
+  color: #303133;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.adjust-slider {
+  margin-bottom: 4px;
+}
+.adjust-tip {
+  font-size: 12px;
+  color: #909399;
+  margin: 0;
+  padding-left: 2px;
 }
 </style>

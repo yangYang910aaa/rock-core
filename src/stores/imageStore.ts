@@ -14,6 +14,11 @@ export type PreprocessType=
 | 'sharpen' //锐化
 | 'edgeDetect' //边缘检测
 | 'negativeEffect' //底片效果
+//定义亮度/对比度调整状态
+export type BrightContrastParams={
+  alpha:number,//对比度系数(0.0~3.0，默认1.0)
+  beta:number,//亮度系数(-100~100，默认0)
+}
 export const useImageStore=defineStore('image',()=>{
   // ==========================================
   // 1. 基础状态
@@ -34,7 +39,11 @@ export const useImageStore=defineStore('image',()=>{
   // ==========================================
   const cvReady=ref<boolean>(false) //OpenCV.js是否加载完成
   const isProcessing=ref<boolean>(false) //是否正在处理
-
+  //状态:亮度/对比度调整参数
+  const bcParams=ref<BrightContrastParams>({
+    alpha:1.0,
+    beta:0
+  })
  // 临时 Canvas（用于 OpenCV.js 处理，不暴露给 UI）
   let inputCanvas:HTMLCanvasElement|null=null
   let outputCanvas:HTMLCanvasElement|null=null
@@ -68,7 +77,10 @@ export const useImageStore=defineStore('image',()=>{
         isImageLoaded.value=false
         isImageProcessed.value=false
     }
-
+    //重置亮度/对比度调整参数
+    const resetBCParams=()=>{
+      bcParams.value={alpha:1.0,beta:0}
+    }
   // ==========================================
   // 4. OpenCV.js 初始化
   // ==========================================
@@ -264,16 +276,33 @@ export const useImageStore=defineStore('image',()=>{
 
   //亮度对比度调整处理函数:调整图像的亮度和对比度
   /**
- * 亮度/对比度调节（带参数）
- * @param alpha 对比度系数（1.0=不变，>1增强，<1减弱）
- * @param beta 亮度偏移量（0=不变，>0变亮，<0变暗）
- */
+   * 亮度/对比度调节（优化版）
+   * @param alpha 对比度系数（0.0 ~ 3.0，1.0=不变）
+   * @param beta 亮度偏移量（-100 ~ 100，0=不变）
+   */
   const executeBrightnessContrast=async(alpha:number=1.0,beta:number=0)=>{
-    const {src}=await loadImageToMat()
-    const dst=new cv.Mat()
-    src.convertTo(dst,-1,alpha,beta)
-    saveMatToImage(dst,src,'亮度/对比度')
-    ElMessage.success('亮度对比度调整完成')
+    //参数校验
+    const clampedAlpha=Math.max(0.0,Math.min(3.0,alpha))//限制在0.0~3.0之间
+    const clampedBeta=Math.max(-100,Math.min(100,beta))//限制在-100~100之间
+    const {src,width,height}=await loadImageToMat()
+    const dst=new cv.Mat(height,width,src.type())
+    try {
+      //dst=src*alpha+beta
+      src.convertTo(dst,-1,clampedAlpha,clampedBeta)
+      saveMatToImage(dst,src,'亮度/对比度调整')
+      //更新当前参数
+      bcParams.value={
+        alpha:clampedAlpha,
+        beta:clampedBeta
+      }
+      ElMessage.success(`亮度/对比度调整完成(对比度：${clampedAlpha.toFixed(1)}，亮度：${clampedBeta})`)
+    } catch (error) {
+      //异常时手动释放内存
+      src.delete()
+      dst.delete()
+      ElMessage.error('亮度对比度调整失败')
+      throw error
+    }
   }
   // ==========================================
   // 7. 暴露给组件的状态和方法
@@ -288,11 +317,13 @@ export const useImageStore=defineStore('image',()=>{
         //OpenCV状态
         cvReady,
         isProcessing,
+        bcParams,
         //基础方法
         setImage,
         setProcessedImage,
         resetImage,
         resetAll,
+        resetBCParams,
         //OpenCV方法
         initOpenCV,
         executeProcess,
