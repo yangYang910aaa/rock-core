@@ -67,7 +67,7 @@
     </div>
   </div>
   <!-- 亮度/对比度调整弹窗 -->
-  <el-dialog v-model="bcDialogVisible" title="亮度/对比度调整" width="400px" destroy-on-close @close="imageStore.resetBCParams()"> 
+  <el-dialog v-model="bcDialogVisible" title="亮度/对比度调整" width="400px" destroy-on-close > 
     <div class="bc-adjust-panel">
       <!-- 对比度调节 -->
       <div class="adjust-item">
@@ -95,7 +95,7 @@
   </el-dialog>
 
   <!-- 饱和度调整弹窗 -->
-  <el-dialog v-model="saturationDialogVisible" title="饱和度调整" width="400px" destroy-on-close @close="imageStore.resetSaturationParams()"> 
+  <el-dialog v-model="saturationDialogVisible" title="饱和度调整" width="400px" destroy-on-close > 
     <div class="saturation-adjust-panel">
       <div class="adjust-item">
         <p class="adjust-tip">1.0=原始饱和度,大于1增强,小于1减弱,0为纯灰度</p>
@@ -150,10 +150,7 @@ const resetBCParams = () => {
 }
 // 确认应用亮度/对比度参数
 const confirmBCAdjust=async()=>{
-  await imageStore.executeBrightnessContrast(
-    imageStore.bcParams.alpha,
-    imageStore.bcParams.beta
-  )
+  await imageStore.executeProcess('brightnessContrast')
   bcDialogVisible.value=false
 }
 //饱和度弹窗状态
@@ -170,7 +167,7 @@ const resetSaturationParams = () => {
   imageStore.resetSaturationParams()
 }
 const confirmSaturationAdjust=async()=>{
-  await imageStore.executeSaturation(imageStore.saturationFactor)
+  await imageStore.executeProcess('saturation')
   saturationDialogVisible.value=false
 }
 </script>

@@ -1,421 +1,194 @@
-import {defineStore} from 'pinia'
-import {nextTick, ref} from 'vue'
-import cv from '@techstark/opencv-js'
+// src/stores/imageStore.ts
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-
-//定义预处理操作类型
-export type PreprocessType=
-| 'grayscale' //灰度化
-| 'autoLevels' //自动色阶
-| 'curveAdjust' //曲线调整
-| 'brightnessContrast' //亮度对比度
-| 'saturation' //饱和度
-| 'filterSmooth' //平滑滤波
-| 'sharpen' //锐化
-| 'edgeDetect' //边缘检测
-| 'negativeEffect' //底片效果
-//定义亮度/对比度调整状态
-export type BrightContrastParams={
-  alpha:number,//对比度系数(0.0~3.0，默认1.0)
-  beta:number,//亮度系数(-100~100，默认0)
-}
-export const useImageStore=defineStore('image',()=>{
-  // ==========================================
-  // 1. 基础状态
-  // ==========================================
-    //状态:当前打开的图片文件路径
-    const currentImagePath=ref<string>('')
-    //状态:当前图片的DataURL(用于在页面上显示)
-    const currentImageDataUrl=ref<string>('')
-    //状态:当前图片是否已加载
-    const isImageLoaded=ref<boolean>(false)
-    //状态:处理后的图片,用于显示灰度化,色阶等效果
-    const processedImageDataUrl=ref<string>('')
-    //状态:图片是否已经被处理
-    const isImageProcessed=ref<boolean>(false)
-
- // ==========================================
-  // 2. OpenCV.js 相关状态
-  // ==========================================
-  const cvReady=ref<boolean>(false) //OpenCV.js是否加载完成
-  const isProcessing=ref<boolean>(false) //是否正在处理
-
-  //状态:亮度/对比度调整参数
-  const bcParams=ref<BrightContrastParams>({
-    alpha:1.0,
-    beta:0
-  })
-  //状态:饱和度调整参数
-  const saturationFactor=ref<number>(1.0)
-
- // 临时 Canvas（用于 OpenCV.js 处理，不暴露给 UI）
-  let inputCanvas:HTMLCanvasElement|null=null
-  let outputCanvas:HTMLCanvasElement|null=null
+import { initOpenCV as initOpenCVUtil } from '@/utils/opencvUtils'
+import { executeImageProcess } from '@/services/imageProcessService'
 
 // ==========================================
-  // 3. 基础操作
+// 1. 类型定义
+// ==========================================
+
+// 预处理操作类型
+export type PreprocessType =
+  | 'grayscale' // 灰度化
+  | 'autoLevels' // 自动色阶
+  | 'curveAdjust' // 曲线调整
+  | 'brightnessContrast' // 亮度对比度
+  | 'saturation' // 饱和度
+  | 'filterSmooth' // 平滑滤波
+  | 'sharpen' // 锐化
+  | 'edgeDetect' // 边缘检测
+  | 'negativeEffect' // 底片效果
+
+// 亮度/对比度调整参数类型
+export type BrightContrastParams = {
+  alpha: number // 对比度系数(0.0~3.0，默认1.0)
+  beta: number // 亮度系数(-100~100，默认0)
+}
+
+// ==========================================
+// 2. Store 定义
+// ==========================================
+export const useImageStore = defineStore('image', () => {
   // ==========================================
-    //操作:设置图片信息
-    const setImage=(filePath:string,dataUrl:string)=>{
-        currentImagePath.value=filePath
-        currentImageDataUrl.value=dataUrl
-        isImageLoaded.value=true
-        processedImageDataUrl.value=dataUrl
-        isImageProcessed.value=false
-        resetBCParams()
-        resetSaturationParams()
-    }
-    //操作:设置处理后的图片信息
-    const setProcessedImage=(dataUrl:string)=>{
-        processedImageDataUrl.value=dataUrl
-        isImageProcessed.value=true
-    }
-    //操作:重置图片信息
-    const resetImage=()=>{
-        processedImageDataUrl.value=currentImageDataUrl.value
-        isImageProcessed.value=false
-        resetBCParams()
-        resetSaturationParams()
-    }
-    //重置全部
-    const resetAll=()=>{
-        currentImagePath.value=''
-        currentImageDataUrl.value=''
-        processedImageDataUrl.value=''
-        isImageLoaded.value=false
-        isImageProcessed.value=false
-        resetBCParams()
-        resetSaturationParams()
-    }
-    //重置亮度/对比度调整参数,默认1.0,0
-    const resetBCParams=()=>{
-      bcParams.value={alpha:1.0,beta:0}
-    }
-    //重置饱和度调整参数,默认1.0
-    const resetSaturationParams=()=>{
-      saturationFactor.value=1.0
-    }
+  // 2.1 基础状态
   // ==========================================
-  // 4. OpenCV.js 初始化
+  const currentImagePath = ref<string>('') // 当前打开的图片文件路径
+  const currentImageDataUrl = ref<string>('') // 当前图片的 DataURL
+  const isImageLoaded = ref<boolean>(false) // 图片是否已加载
+  const processedImageDataUrl = ref<string>('') // 处理后的图片 DataURL
+  const isImageProcessed = ref<boolean>(false) // 图片是否已处理
+
   // ==========================================
-  const initOpenCV=async()=>{
-    if(cvReady.value){
+  // 2.2 OpenCV 相关状态
+  // ==========================================
+  const cvReady = ref<boolean>(false) // OpenCV.js 是否加载完成
+  const isProcessing = ref<boolean>(false) // 是否正在处理
+
+  // ==========================================
+  // 2.3 预处理参数状态
+  // ==========================================
+  const bcParams = ref<BrightContrastParams>({
+    alpha: 1.0,
+    beta: 0
+  })
+  const saturationFactor = ref<number>(1.0) // 饱和度系数
+
+  // ==========================================
+  // 3. 基础状态操作
+  // ==========================================
+
+  /**
+   * 设置图片信息
+   */
+  const setImage = (filePath: string, dataUrl: string) => {
+    currentImagePath.value = filePath
+    currentImageDataUrl.value = dataUrl
+    isImageLoaded.value = true
+    processedImageDataUrl.value = dataUrl
+    isImageProcessed.value = false
+    resetBCParams()
+    resetSaturationParams()
+  }
+
+  /**
+   * 设置处理后的图片信息
+   */
+  const setProcessedImage = (dataUrl: string) => {
+    processedImageDataUrl.value = dataUrl
+    isImageProcessed.value = true
+  }
+
+  /**
+   * 重置图片信息（恢复原图）
+   */
+  const resetImage = () => {
+    processedImageDataUrl.value = currentImageDataUrl.value
+    isImageProcessed.value = false
+    resetBCParams()
+    resetSaturationParams()
+  }
+
+  /**
+   * 重置全部状态
+   */
+  const resetAll = () => {
+    currentImagePath.value = ''
+    currentImageDataUrl.value = ''
+    processedImageDataUrl.value = ''
+    isImageLoaded.value = false
+    isImageProcessed.value = false
+    resetBCParams()
+    resetSaturationParams()
+  }
+
+  /**
+   * 重置亮度/对比度参数
+   */
+  const resetBCParams = () => {
+    bcParams.value = { alpha: 1.0, beta: 0 }
+  }
+
+  /**
+   * 重置饱和度参数
+   */
+  const resetSaturationParams = () => {
+    saturationFactor.value = 1.0
+  }
+
+  // ==========================================
+  // 4. OpenCV 初始化
+  // ==========================================
+  const initOpenCV = async () => {
+    if (cvReady.value) return
+    try {
+      await initOpenCVUtil()
+      cvReady.value = true
+    } catch (error) {
+      ElMessage.error('OpenCV.js 初始化失败')
+      console.error('OpenCV 初始化错误:', error)
+    }
+  }
+
+  // ==========================================
+  // 5. 核心：图像处理入口
+  // ==========================================
+  const executeProcess = async (type: PreprocessType) => {
+    // 前置校验
+    if (!cvReady.value || !isImageLoaded.value || isProcessing.value) {
+      if (!cvReady.value) ElMessage.warning('OpenCV.js 未加载完成')
+      if (!isImageLoaded.value) ElMessage.warning('请先打开图片')
+      if (isProcessing.value) ElMessage.warning('正在处理中，请稍后')
       return
     }
-    //等待OpenCV.js加载完成
-    if(cv.Mat){
-        cvReady.value=true
-        console.log('OpenCV.js加载完成')
-    }else{
-        //OpenCV.js未加载,等待加载完成
-        cv['onRuntimeInitialized']=()=>{
-            cvReady.value=true
-            console.log('OpenCV.js加载完成')
-        }
-    }
-    //创建临时Canvas
-    await nextTick()
-    inputCanvas=document.createElement('canvas')
-    outputCanvas=document.createElement('canvas')
-  }
-  // ==========================================
-  // 【核心重构】5. 通用辅助函数（提取重复代码）
-  // ==========================================
 
-    // 通用辅助函数1：加载图片并转换为 OpenCV Mat
-  const loadImageToMat=async():Promise<{ src: cv.Mat, width: number, height: number }>=>{
-    if(!inputCanvas||!currentImageDataUrl.value){
-        throw new Error('Canvas未初始化或图片未加载')
-    }
-    return new Promise((resolve,reject)=>{
-        const img=new Image()
-        img.crossOrigin='anonymous'
-        img.onload=()=>{
-            try {
-                //1.将图片绘制到输入Canvas
-                inputCanvas!.width=img.width
-                inputCanvas!.height=img.height
-                const inputCtx=inputCanvas!.getContext('2d')!
-                inputCtx.drawImage(img,0,0)
-                //2.读取为OpenCV Mat
-                const src=cv.imread(inputCanvas!)
-                resolve({src,width:img.width,height:img.height})
-            } catch (error) {
-                reject(error)
-            }
-        }
-        img.onerror=(error)=>reject(error)
-        img.src=currentImageDataUrl.value
-    })
-  }
-    /**
-   * 通用辅助函数2：将处理后的 Mat 保存为图片并更新 Store
-   * @param dst 处理后的 OpenCV Mat
-   * @param src 原始 Mat（用于释放内存）
-   * @param processName 处理名称
-   */
-  const saveMatToImage=(dst:cv.Mat,src:cv.Mat,processName:string)=>{
-    if(!outputCanvas){
-        return
-    }
-    //1.将处理后的Mat绘制到输出Canvas
-    cv.imshow(outputCanvas!,dst)
-    //2.更新Store
-    setProcessedImage(outputCanvas!.toDataURL('image/png'))
-    //3.释放内存
-    src.delete()
-    dst.delete()
-  }
-  // ==========================================
-  // 6. 核心：图像处理函数
-  // ==========================================
-  const executeProcess=async(type:PreprocessType)=>{
-    if(!cvReady.value||!isImageLoaded.value||isProcessing.value){
-        if(!cvReady.value)ElMessage.warning('OpenCV.js未加载完成')
-        if(!isImageLoaded.value)ElMessage.warning('请先打开图片')
-        if(isProcessing.value)ElMessage.warning('正在处理中,请稍后')
-            return
-    }
-    isProcessing.value=true
-    try{
-        switch(type){
-            case 'grayscale'://灰度化
-                await executeGrayscale()
-                break
-            case 'negativeEffect'://底片效果
-                await executeNegativeEffect()
-                break
-            case 'edgeDetect'://边缘检测
-                await executeEdgeDetect()
-                break
-            case 'filterSmooth'://滤波平滑
-                await executeFilterSmooth()
-                break
-            case 'autoLevels'://自动色阶
-                await executeAutoLevels()
-                break
-            case 'sharpen'://锐化
-                await executeSharpen()
-                break
-            case 'brightnessContrast'://亮度对比度调整
-                await executeBrightnessContrast(bcParams.value.alpha,bcParams.value.beta)
-                break
-            case 'saturation'://饱和度调节
-                await executeSaturation(saturationFactor.value)
-                break
-            default:
-                ElMessage.error('该预处理操作暂未实现')
-                break
-        }
-    }catch(error){
-        ElMessage.error('处理失败')
-    }finally{
-        isProcessing.value=false
-    }
-  }
-  //灰度化处理函数:将图片转换为灰度图
-  const executeGrayscale=async()=>{
-    const {src}=await loadImageToMat()
-    const dst=new cv.Mat()
-    cv.cvtColor(src,dst,cv.COLOR_RGBA2GRAY)
-    saveMatToImage(dst,src,'灰度化')
-    ElMessage.success('灰度化完成')
-  }
-
-  //底片效果处理函数:像素取反,只对RGB通道取反,Alpha通道不变
-  const executeNegativeEffect=async()=>{
-   const {src}=await loadImageToMat()
-   const dst=new cv.Mat()
-   //只对RGB通道取反,Alpha通道保持255
-   const channels=new cv.MatVector()
-   cv.split(src,channels)
-   //对R，G,B通道分别取反
-   cv.bitwise_not(channels.get(0),channels.get(0))//B
-   cv.bitwise_not(channels.get(1),channels.get(1))//G
-   cv.bitwise_not(channels.get(2),channels.get(2))//R
-   cv.merge(channels,dst)//合并通道
-   channels.delete()
-   saveMatToImage(dst,src,'底片效果')
-   ElMessage.success('底片效果完成')
-  }
-  //边缘检测处理函数:Canny边缘检测器
-  const executeEdgeDetect=async()=>{
-    const {src}=await loadImageToMat()
-    const gray=new cv.Mat()
-    const dst=new cv.Mat()
-    cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY)
-    cv.Canny(gray,dst,50,150)
-    saveMatToImage(dst,src,'边缘检测')
-    gray.delete()
-    ElMessage.success('边缘检测完成')
-  }
-
-  //平滑滤波处理函数:高斯模糊
-  const executeFilterSmooth=async()=>{
-    const {src}=await loadImageToMat()
-    const dst=new cv.Mat()
-    cv.GaussianBlur(src,dst,new cv.Size(5,5),0,0)
-    saveMatToImage(dst,src,'滤波平滑')
-  }
-
-// 自动色阶处理函数:根据图像直方图自动调整色阶
-const executeAutoLevels=async()=>{
-  const {src}=await loadImageToMat()
-  const bgrMat = new cv.Mat() // 新增：中间BGR Mat
-  const ycrcb=new cv.Mat()
-  const channels=new cv.MatVector()
-  const dst=new cv.Mat()
-  
-  try {
-    // 1. 先把 BGRA 转成 BGR（去掉透明通道）
-    cv.cvtColor(src, bgrMat, cv.COLOR_BGRA2BGR)
-    // 2. 再把 BGR 转成 YCrCb
-    cv.cvtColor(bgrMat, ycrcb, cv.COLOR_BGR2YCrCb)
-    cv.split(ycrcb, channels)
-    cv.equalizeHist(channels.get(0), channels.get(0))
-    cv.merge(channels, ycrcb)
-    // 转回 BGR
-    cv.cvtColor(ycrcb, dst, cv.COLOR_YCrCb2BGR)
-    saveMatToImage(dst, src, '自动色阶')
-    ElMessage.success('自动色阶完成')
-  } catch (error) {
-    // 异常时释放内存
-    src.delete()
-    bgrMat.delete()
-    ycrcb.delete()
-    channels.delete()
-    dst.delete()
-    throw error
-  } finally {
-    // 释放中间变量内存
-    bgrMat.delete()
-    ycrcb.delete()
-    channels.delete()
-  }
-}
-
-  //锐化处理函数:自定义卷积核
-  const executeSharpen=async()=>{
-    const {src}=await loadImageToMat()
-    const dst=new cv.Mat()
-    //3x3锐化卷积核
-    const kernel=cv.matFromArray(3,3,cv.CV_32F,[
-        0,-1,0,
-        -1,5,-1,
-        0,-1,0
-    ])
-    cv.filter2D(src,dst,cv.CV_8U,kernel)
-    kernel.delete()
-    saveMatToImage(dst,src,'锐化')
-    ElMessage.success('锐化完成')
-  }
-
-  //亮度对比度调整处理函数:调整图像的亮度和对比度
-  /**
-   * 亮度/对比度调节（优化版）
-   * @param alpha 对比度系数（0.0 ~ 3.0，1.0=不变）
-   * @param beta 亮度偏移量（-100 ~ 100，0=不变）
-   */
-  const executeBrightnessContrast=async(alpha:number=1.0,beta:number=0)=>{
-    //参数校验
-    const clampedAlpha=Math.max(0.0,Math.min(3.0,alpha))//限制在0.0~3.0之间
-    const clampedBeta=Math.max(-100,Math.min(100,beta))//限制在-100~100之间
-    const {src,width,height}=await loadImageToMat()
-    const dst=new cv.Mat(height,width,src.type())
+    isProcessing.value = true
     try {
-      //dst=src*alpha+beta
-      src.convertTo(dst,-1,clampedAlpha,clampedBeta)
-      saveMatToImage(dst,src,'亮度/对比度调整')
-      //更新当前参数
-      bcParams.value={
-        alpha:clampedAlpha,
-        beta:clampedBeta
-      }
-      ElMessage.success(`亮度/对比度调整完成(对比度：${clampedAlpha.toFixed(1)}，亮度：${clampedBeta})`)
+      // 调用业务服务，传入当前状态
+      const resultDataUrl = await executeImageProcess(type, {
+        imageDataUrl: currentImageDataUrl.value,
+        bcParams: bcParams.value,
+        saturationFactor: saturationFactor.value
+      })
+
+      // 更新处理后的图片
+      processedImageDataUrl.value = resultDataUrl
+      isImageProcessed.value = true
     } catch (error) {
-      //异常时手动释放内存
-      src.delete()
-      dst.delete()
-      ElMessage.error('亮度对比度调整失败')
-      throw error
+      ElMessage.error('图像处理失败')
+      console.error('图像处理错误:', error)
+    } finally {
+      isProcessing.value = false
     }
   }
-/**
- * 8. 饱和度调节
- * @param factor 饱和度系数（0.0 ~ 3.0，1.0=不变）
- */
-const executeSaturation=async(factor: number = 1.0)=>{
-  const { src } = await loadImageToMat()
-  const bgrMat = new cv.Mat()
-  const hsvMat = new cv.Mat()
-  const channels = new cv.MatVector()
-  const dst = new cv.Mat()
-  
-  try {
-    //通道转换：BGRA → BGR（去掉透明通道，匹配OpenCV默认顺序）
-    cv.cvtColor(src, bgrMat, cv.COLOR_BGRA2BGR)
-    //BGR转HSV，用正确的转换码，通道顺序完全匹配
-    cv.cvtColor(bgrMat, hsvMat, cv.COLOR_BGR2HSV)
-    cv.split(hsvMat, channels)
 
-    // 类型安全校验
-    const sChannel = channels.get(1)!
-    if (sChannel.empty()) {
-      throw new Error('饱和度通道获取失败')
-    }
-
-    // 核心：OpenCV原生矩阵运算，1.0时完全不修改
-    sChannel.convertTo(sChannel, cv.CV_8U, factor, 0)
-
-    // 合并通道，转回BGR格式
-    cv.merge(channels, hsvMat)
-    cv.cvtColor(hsvMat, dst, cv.COLOR_HSV2BGR)
-
-    // 更新参数并保存结果
-    saturationFactor.value = factor
-    saveMatToImage(dst, src, '饱和度调节')
-    ElMessage.success(`饱和度调节完成（系数：${factor.toFixed(1)}）`)
-  } catch (error) {
-    // 异常时释放内存
-    src.delete()
-    bgrMat.delete()
-    hsvMat.delete()
-    channels.delete()
-    dst.delete()
-    throw error
-  } finally {
-    // 释放中间变量内存
-    bgrMat.delete()
-    hsvMat.delete()
-    channels.delete()
+  // ==========================================
+  // 6. 暴露给组件的状态和方法
+  // ==========================================
+  return {
+    // 基础状态
+    currentImagePath,
+    currentImageDataUrl,
+    processedImageDataUrl,
+    isImageLoaded,
+    isImageProcessed,
+    // OpenCV 状态
+    cvReady,
+    isProcessing,
+    // 预处理参数
+    bcParams,
+    saturationFactor,
+    // 基础方法
+    setImage,
+    setProcessedImage,
+    resetImage,
+    resetAll,
+    resetBCParams,
+    resetSaturationParams,
+    // OpenCV 方法
+    initOpenCV,
+    // 图像处理入口
+    executeProcess
   }
-}
-  // ==========================================
-  // 7. 暴露给组件的状态和方法
-  // ==========================================
-    return{
-        //基础状态
-        currentImagePath,
-        currentImageDataUrl,
-        processedImageDataUrl,
-        isImageLoaded,
-        isImageProcessed,
-        //OpenCV状态
-        cvReady,
-        isProcessing,
-        bcParams,
-        saturationFactor,
-        //基础方法
-        setImage,
-        setProcessedImage,
-        resetImage,
-        resetAll,
-        resetBCParams,
-        resetSaturationParams,
-        //OpenCV方法
-        initOpenCV,
-        executeProcess,
-        executeBrightnessContrast,
-        executeSaturation,
-    }
 })
