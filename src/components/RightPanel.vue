@@ -102,16 +102,63 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { DocumentAdd, Refresh } from '@element-plus/icons-vue'
 import {useAnalysisStore} from '@/stores/analysisStore'
 import {useImageStore} from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
+import { storeToRefs } from 'pinia'
+import { previewAnalysisMask } from '@/services/analysisProcessService'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
+const { 
+  targetMaskMat, 
+  currentMode, 
+  holeThreshold, 
+  crackThreshold, 
+  sizeThreshold, 
+  analysisRegion 
+} = storeToRefs(analysisStore)
 
 const activeNames = ref<string[]>(['1','2'])//默认展开阈值设置和分析结果
+// 防抖定时器，用于节流预览分析结果
+let previewDebounceTimer: NodeJS.Timeout | null = null
+// 【关键新增】防抖预览蒙版
+const debouncePreview = () => {
+  if (!imageStore.processedImageDataUrl) return
+
+  // 清除之前的定时器
+  if (previewDebounceTimer) {
+    clearTimeout(previewDebounceTimer)
+  }
+
+  // 200ms防抖，避免频繁调用
+  previewDebounceTimer = setTimeout(async () => {
+    // 获取当前阈值
+    let threshold
+    switch (currentMode.value) {
+      case 'hole':
+        threshold = holeThreshold.value
+        break
+      case 'crack':
+        threshold = crackThreshold.value
+        break
+      case 'size':
+        threshold = sizeThreshold.value
+        break
+    }
+
+    // 调用预览，传入targetMaskMat
+    await previewAnalysisMask(
+      currentMode.value,
+      imageStore.processedImageDataUrl,
+      threshold,
+      analysisRegion.value,
+      targetMaskMat
+    )
+  }, 200)
+}
 //重置按钮点击事件
 const handleReset=()=>{
   imageStore.resetImage()
@@ -121,6 +168,45 @@ const handleReset=()=>{
 const handleGenerateReport=()=>{
   ElMessage.success('生成分析报告成功')
 }
+
+// ==========================================
+// 【关键新增】监听：阈值变化时实时预览
+// ==========================================
+watch(
+  () => [
+    holeThreshold.value,
+    crackThreshold.value,
+    sizeThreshold.value
+  ],
+  () => {
+    debouncePreview()
+  },
+  { deep: true }
+)
+
+// 监听：分析模式变化时重新预览
+watch(() => currentMode.value, () => {
+  debouncePreview()
+})
+
+// 监听：分析区域变化时重新预览
+watch(() => analysisRegion.value, () => {
+  debouncePreview()
+}, { deep: true })
+
+// 监听：图片变化时重新预览
+watch(() => imageStore.processedImageDataUrl, () => {
+  if (imageStore.processedImageDataUrl) {
+    debouncePreview()
+  }
+})
+
+// 组件挂载时初始化
+onMounted(() => {
+  if (imageStore.processedImageDataUrl) {
+    debouncePreview()
+  }
+})
 </script>
 
 <style scoped>

@@ -8,7 +8,7 @@
 
         <!-- 图片显示区域 -->
         <div class="image-container" v-else>
-            <!-- 双层 Canvas 容器（用于选框和蒙版） -->
+            <!-- 三层 Canvas 容器 -->
             <div class="canvas-wrapper" ref="containerRef">
                 <!-- 底层 Canvas：显示图片 -->
                 <canvas
@@ -20,10 +20,15 @@
                     @mouseleave="handleMouseUp"
                     @wheel.prevent="handleImageZoom"
                 />
-                <!-- 上层 Canvas：显示蒙版 -->
+                <!-- 中层 Canvas：显示蓝色分析区域蒙版 -->
                 <canvas
                     ref="maskCanvasRef"
-                    class="mask-canvas"
+                    class="mask-canvas region-mask"
+                />
+                <!-- 顶层 Canvas：显示红色目标蒙版 -->
+                <canvas
+                    ref="targetMaskCanvasRef"
+                    class="mask-canvas target-mask"
                 />
             </div>
 
@@ -51,6 +56,7 @@ import { useImageStore } from '@/stores/imageStore';
 import { useAnalysisStore, type AnalysisRegion } from '@/stores/analysisStore';
 import { storeToRefs } from 'pinia';
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import cv from '@techstark/opencv-js';
 
 // ==========================================
 // 1. Store 引入
@@ -69,12 +75,16 @@ const {
     processedImageDataUrl
 } = storeToRefs(imageStore);
 
+// 【关键修改】从Store里解构目标蒙版状态
+const { targetMaskMat, analysisRegion, regionMode } = storeToRefs(analysisStore);
+
 // ==========================================
 // 3. Canvas 和选框相关状态
 // ==========================================
 const containerRef = ref<HTMLDivElement | null>(null);
 const imageCanvasRef = ref<HTMLCanvasElement | null>(null);
 const maskCanvasRef = ref<HTMLCanvasElement | null>(null);
+const targetMaskCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 // 选框状态
 const isDragging = ref<boolean>(false);
@@ -100,29 +110,27 @@ let resizeObserver: ResizeObserver | null = null;
  * 初始化 Canvas 尺寸
  */
 const initCanvasSize = async () => {
-    await nextTick(); // 确保 DOM 更新
-    await nextTick(); // 双重 nextTick，确保布局完全渲染
+    await nextTick();
+    await nextTick();
     
-    if (!containerRef.value || !imageCanvasRef.value || !maskCanvasRef.value) return;
+    if (!containerRef.value || !imageCanvasRef.value || !maskCanvasRef.value || !targetMaskCanvasRef.value) return;
 
-    // 获取容器尺寸，增加安全检查
     const containerWidth = containerRef.value.clientWidth || containerRef.value.offsetWidth || 800;
     const containerHeight = containerRef.value.clientHeight || containerRef.value.offsetHeight || 600;
 
-    // 如果尺寸还是 0，延迟重试
     if (containerWidth === 0 || containerHeight === 0) {
         setTimeout(initCanvasSize, 100);
         return;
     }
 
-    // 设置 Canvas 尺寸
+    // 所有Canvas尺寸统一
     imageCanvasRef.value.width = containerWidth;
     imageCanvasRef.value.height = containerHeight;
     maskCanvasRef.value.width = containerWidth;
     maskCanvasRef.value.height = containerHeight;
+    targetMaskCanvasRef.value.width = containerWidth;
+    targetMaskCanvasRef.value.height = containerHeight;
 
-
-    // 重新绘制图片
     if (processedImageDataUrl.value) {
         drawImage();
     }
@@ -140,10 +148,8 @@ const drawImage = () => {
 
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-        // 清空 Canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 计算图片缩放比例和偏移量（保持图片比例）
         const imgRatio = img.width / img.height;
         const canvasRatio = canvas.width / canvas.height;
 
@@ -164,20 +170,19 @@ const drawImage = () => {
         imageScale.value = drawWidth / img.width;
         imageOffset.value = { x: drawX, y: drawY };
 
-        // 绘制图片
         ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
-        // 绘制蒙版
-        drawMask();
+        drawRegionMask();
+        drawTargetMask();
     };
 
     img.src = processedImageDataUrl.value;
 };
 
 /**
- * 绘制蒙版
+ * 绘制蓝色分析区域蒙版
  */
-const drawMask = () => {
+const drawRegionMask = () => {
     if (!maskCanvasRef.value) return;
 
     const canvas = maskCanvasRef.value;
@@ -186,8 +191,8 @@ const drawMask = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // 1. 绘制蓝色分析区域
-    if (analysisStore.regionMode === 'rect' && analysisStore.analysisRegion.width > 0) {
-        const region = analysisStore.analysisRegion;
+    if (regionMode.value === 'rect' && analysisRegion.value.width > 0) {
+        const region = analysisRegion.value;
         const canvasX = region.x * imageScale.value + imageOffset.value.x;
         const canvasY = region.y * imageScale.value + imageOffset.value.y;
         const canvasW = region.width * imageScale.value;
@@ -219,6 +224,33 @@ const drawMask = () => {
 };
 
 /**
+ * 绘制红色目标蒙版
+ */
+const drawTargetMask = () => {
+    if (!targetMaskCanvasRef.value || !targetMaskMat.value || targetMaskMat.value.empty()) return;
+
+    const canvas = targetMaskCanvasRef.value;
+    const ctx = canvas.getContext('2d')!;
+
+    // 清空原有蒙版
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 把OpenCV的蒙版绘制到Canvas上
+    cv.imshow(canvas, targetMaskMat.value);
+
+    // 应用图片缩放和偏移，和原图保持一致
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.drawImage(
+        canvas,
+        imageOffset.value.x,
+        imageOffset.value.y,
+        canvas.width * imageScale.value * scale.value,
+        canvas.height * imageScale.value * scale.value
+    );
+    ctx.globalCompositeOperation = 'source-over';
+};
+
+/**
  * 坐标转换
  */
 const canvasToImageCoords = (canvasX: number, canvasY: number): { x: number; y: number } => {
@@ -230,9 +262,8 @@ const canvasToImageCoords = (canvasX: number, canvasY: number): { x: number; y: 
 // ==========================================
 // 5. 鼠标事件处理
 // ==========================================
-// 鼠标按下事件
 const handleMouseDown = (e: MouseEvent) => {
-    if (analysisStore.regionMode !== 'rect' || !isImageLoaded.value) return;
+    if (regionMode.value !== 'rect' || !isImageLoaded.value) return;
     isDragging.value = true;
     analysisStore.isSelectingRegion = true;
 
@@ -245,7 +276,6 @@ const handleMouseDown = (e: MouseEvent) => {
     tempRegion.value = { x: imageCoords.x, y: imageCoords.y, width: 0, height: 0 };
 };
 
-// 鼠标移动事件
 const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging.value) return;
 
@@ -260,10 +290,9 @@ const handleMouseMove = (e: MouseEvent) => {
     const height = Math.abs(imageCoords.y - startPoint.value.y);
 
     tempRegion.value = { x, y, width, height };
-    drawMask();
+    drawRegionMask();
 };
 
-// 鼠标松开事件
 const handleMouseUp = () => {
     if (!isDragging.value) return;
     isDragging.value = false;
@@ -274,10 +303,9 @@ const handleMouseUp = () => {
     }
 
     tempRegion.value = { x: 0, y: 0, width: 0, height: 0 };
-    drawMask();
+    drawRegionMask();
 };
 
-// 鼠标滚轮事件
 const handleImageZoom = (e: WheelEvent) => {
     const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
     const newScale = scale.value + delta;
@@ -290,8 +318,6 @@ const handleImageZoom = (e: WheelEvent) => {
 // ==========================================
 // 6. 监听
 // ==========================================
-
-// 监听图片变化，强制重绘
 watch(() => processedImageDataUrl.value, () => {
     if (processedImageDataUrl.value) {
         initCanvasSize().then(() => {
@@ -301,24 +327,25 @@ watch(() => processedImageDataUrl.value, () => {
 });
 
 watch(() => analysisStore.analysisRegion, () => {
-    drawMask();
+    drawRegionMask();
 }, { deep: true });
 
 watch(() => analysisStore.regionMode, () => {
-    drawMask();
+    drawRegionMask();
+});
+
+// 监听目标蒙版变化，实时重绘
+watch(targetMaskMat, () => {
+    drawTargetMask();
 });
 
 // ==========================================
 // 7. 生命周期
 // ==========================================
 onMounted(async () => {
-    // 初始化 OpenCV
     await imageStore.initOpenCV();
-    
-    // 延迟初始化 Canvas，确保布局完全渲染
     setTimeout(initCanvasSize, 200);
     
-    // 用 ResizeObserver 替代 window.resize，精准监听容器尺寸
     if (containerRef.value) {
         resizeObserver = new ResizeObserver(() => {
             console.log('📐 容器尺寸变化，重新初始化 Canvas');
@@ -329,7 +356,6 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-    // 清理 ResizeObserver
     if (resizeObserver) {
         resizeObserver.disconnect();
         resizeObserver = null;
@@ -337,6 +363,7 @@ onUnmounted(() => {
     window.removeEventListener('resize', initCanvasSize);
 });
 </script>
+
 <style scoped>
 .image-canvas-wrapper {
     width: 100%;
@@ -370,12 +397,11 @@ onUnmounted(() => {
     box-sizing: border-box;
 }
 
-/* 新增：Canvas 容器样式 */
 .canvas-wrapper {
     position: relative;
     width: 100%;
-    height: 85%; /* 留出空间给信息栏 */
-    background-color: #2b2b2b; /* 深色背景，方便看图片 */
+    height: 85%;
+    background-color: #2b2b2b;
     border: 1px solid #dcdfe6;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     border-radius: 4px;
@@ -387,15 +413,22 @@ onUnmounted(() => {
     top: 0;
     left: 0;
     z-index: 1;
-    cursor: crosshair; /* 十字光标，方便选框 */
+    cursor: crosshair;
 }
 
 .mask-canvas {
     position: absolute;
     top: 0;
     left: 0;
+    pointer-events: none;
+}
+
+.region-mask {
     z-index: 2;
-    pointer-events: none; /* 蒙版不拦截鼠标事件 */
+}
+
+.target-mask {
+    z-index: 3;
 }
 
 .image-info {

@@ -13,7 +13,7 @@ import {
   sharpenProcess,//锐化
   brightnessContrastProcess,//亮度/对比度调整
   saturationProcess//饱和度调节
-} from '@/utils/opencvUtils'
+} from '@/utils/opencv'
 //处理参数类型
 interface ProcessParams{
     imageDataUrl:string

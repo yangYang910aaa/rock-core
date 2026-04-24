@@ -1,6 +1,6 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
-
+import cv from '@techstark/opencv-js'
 // ==========================================
 // 1. 类型定义
 // ==========================================
@@ -92,6 +92,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         width:0,
         height:0,
     })
+    const targetMaskMat = ref<cv.Mat | null>(null)//目标区域掩码
    // ==========================================
    // 4.3 阈值状态
    // ==========================================
@@ -216,6 +217,11 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         resetAnalysisRegion()
         resetResults()
         resetThresholds()
+           // 重置蒙版时释放内存
+        if (targetMaskMat.value) {
+            targetMaskMat.value.delete()
+            targetMaskMat.value = null
+        }
     }
     // ==========================================
     // 6. 暴露给组件的状态和方法
@@ -228,6 +234,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     isAnalyzing,
     // 分析区域
     analysisRegion,
+    targetMaskMat,
     // 阈值
     holeThreshold,
     crackThreshold,

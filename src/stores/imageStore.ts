@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { initOpenCV as initOpenCVUtil } from '@/utils/opencvUtils'
+import { initOpenCV as initOpenCVUtil } from '@/utils/opencv'
 import { executeImageProcess } from '@/services/imageProcessService'
 
 // ==========================================
