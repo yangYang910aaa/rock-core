@@ -33,7 +33,15 @@
             <el-radio-button label="crack">裂缝分析</el-radio-button>
             <el-radio-button label="size">粒度分析</el-radio-button>
           </el-radio-group>
-
+          <!-- 分析范围开关-->
+          <div class="region-mode-group">
+            <div class="group-title">分析范围</div>
+            <el-radio-group v-model="regionMode" type="button" class="region-radio-group" :disabled="!isImageLoaded">
+              <el-radio-button label="full" >全图分析</el-radio-button>
+              <el-radio-button label="rect">局部分析</el-radio-button>
+            </el-radio-group>  
+            <p class="region-tip" v-if="regionMode==='rect'">可在右侧图片上拖拽绘制矩形分析区域</p>
+          </div>
           <!-- 核心分析操作区 -->
         <div class="analysis-operate">
           <!-- 分组1：提取操作 -->
@@ -115,17 +123,20 @@
 
 <script setup lang="ts">
 import { ref,watch } from 'vue'
-import { useAnalysisStore, type AnalysisMode,type PreprocessType } from '@/stores/analysisStore'
-import { useImageStore } from '@/stores/imageStore'
+import { useAnalysisStore, type AnalysisMode,type RegionMode } from '@/stores/analysisStore'
+import {useImageStore,type PreprocessType} from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
-import { open } from 'fs'
+import { storeToRefs } from 'pinia'
 
 const analysisStore=useAnalysisStore()
 const imageStore=useImageStore()
 
+//解构Store状态
+const {currentMode:analysisMode,regionMode}=storeToRefs(analysisStore)
+const {isImageLoaded}=storeToRefs(imageStore)
+//原有状态
 const activeNames = ref<string[]>(['1']) // 标尺设置面板默认展开
 const scaleType = ref<'macro' | 'micro'>('macro') // 标尺类型，默认宏观
-const analysisMode = ref<AnalysisMode>('hole') // 分析模式，默认孔洞分析
 //处理图像预处理的点击事件
 const handlePreprocess=(type:PreprocessType)=>{
     imageStore.executeProcess(type)
@@ -133,6 +144,15 @@ const handlePreprocess=(type:PreprocessType)=>{
 // 监听分析模式变化,同步到Store
 watch(analysisMode,(newMode)=>{
   analysisStore.setMode(newMode)
+})
+// 监听分析范围切换
+watch(regionMode, (newMode: RegionMode) => {
+  analysisStore.setRegionMode(newMode)
+  if (newMode === 'full') {
+    ElMessage.warning('已切换到全图分析模式')
+  } else if (newMode === 'rect') {
+    ElMessage.warning('已切换到局部分析模式，可在图片上拖拽绘制分析区域')
+  }
 })
 // 亮度/对比度弹窗状态
 const bcDialogVisible = ref<boolean>(false)
@@ -163,9 +183,11 @@ const openSaturationDialog=()=>{
   }
   saturationDialogVisible.value = true
 }
+//重置饱和度参数
 const resetSaturationParams = () => {
   imageStore.resetSaturationParams()
 }
+// 确认应用饱和度参数
 const confirmSaturationAdjust=async()=>{
   await imageStore.executeProcess('saturation')
   saturationDialogVisible.value=false
@@ -238,6 +260,40 @@ const confirmSaturationAdjust=async()=>{
   padding: 0;
   box-sizing: border-box;
 }
+
+/* 分析范围样式 */
+.region-mode-group {
+  margin-bottom: 20px;
+}
+.region-radio-group {
+  width: 100%;
+  display: flex;
+}
+.region-radio-group :deep(.el-radio-group) {
+  width: 100%;
+  display: flex;
+}
+.region-radio-group :deep(.el-radio-button) {
+  flex: 1;
+  text-align: center;
+}
+.region-radio-group :deep(.el-radio-button__inner) {
+  width: 100%;
+  height: 40px;
+  font-size: 14px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+}
+.region-tip {
+  margin: 8px 0 0 4px;
+  font-size: 12px;
+  color: #909399;
+}
+
 /* 操作分组样式 */
 .operate-group {
   margin-bottom: 16px;

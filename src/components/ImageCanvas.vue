@@ -97,7 +97,7 @@ let resizeObserver: ResizeObserver | null = null;
 // ==========================================
 
 /**
- * 初始化 Canvas 尺寸（增加安全检查）
+ * 初始化 Canvas 尺寸
  */
 const initCanvasSize = async () => {
     await nextTick(); // 确保 DOM 更新

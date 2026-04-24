@@ -1,4 +1,3 @@
-import { exp } from '@techstark/opencv-js'
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
 
