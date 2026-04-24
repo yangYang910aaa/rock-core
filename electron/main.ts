@@ -34,6 +34,7 @@ function createWindow() {
       mainWindow.isMaximized()?mainWindow?.unmaximize():mainWindow?.maximize()
     }) //最大化窗口
     ipcMain.on('window-close',()=>mainWindow?.close()) //关闭窗口
+    ipcMain.on('window-reload',()=>mainWindow?.webContents.reload()) //刷新窗口
     ipcMain.on('window-devtools',()=>mainWindow?.webContents.toggleDevTools()) //打开/关闭开发者工具
     
     //监听打开岩心图片事件
@@ -80,7 +81,7 @@ function createWindow() {
     if (isDev) {
       mainWindow.loadURL('http://localhost:5173')
       //打开时自动打开开发者工具
-      mainWindow.webContents.openDevTools()
+      // mainWindow.webContents.openDevTools()
     } else {
       mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
     }

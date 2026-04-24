@@ -47,8 +47,8 @@
         </el-sub-menu>
         <el-sub-menu index="view">
             <template #title>视图</template>
-            <el-menu-item index="reload">刷新</el-menu-item>
-            <el-menu-item index="devtools">打开开发者工具</el-menu-item>
+            <el-menu-item index="reload" @click="handleReload">刷新</el-menu-item>
+            <el-menu-item index="devtools" @click="handleOpenDevTools">打开开发者工具</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </div>
@@ -86,6 +86,14 @@ const handleOpenImage = async() => {
     } catch (error) {
         console.error('打开图片失败:', error)
     }
+}
+//刷新函数
+const handleReload=()=>{
+  ipcRenderer.send('window-reload')
+}
+//打开开发者工具函数
+const handleOpenDevTools=()=>{
+  ipcRenderer.send('window-devtools')
 }
 </script>
 
