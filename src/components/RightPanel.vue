@@ -1,9 +1,10 @@
 <template>
   <div class="right-panel">
-    <!-- 顶部操作按钮：保持不变，已经对齐 -->
+    <!-- 顶部操作按钮 -->
     <div class="action-btns">
       <el-button type="danger" block class="panel-btn" @click="handleGenerateReport"><el-icon><DocumentAdd /></el-icon>生成分析报告</el-button>
       <el-button type="warning" block class="panel-btn" @click="handleReset"><el-icon><Refresh /></el-icon>重置分析</el-button>
+      <el-button type="primary" block class="panel-btn" @click="handleStartAnalysis"><el-icon><Search /></el-icon>开始分析</el-button>
     </div>
 
     <!-- 可滚动的参数&结果区域 -->
@@ -11,12 +12,22 @@
       <el-collapse v-model="activeNames">
         <!-- 阈值设置面板 :根据分析模式动态显示-->
         <el-collapse-item title="阈值设置" name="1">
+          <el-form label-width="90px" size="default" class="panel-form">
+            <!-- 分析区域切换 -->
+            <el-form-item label="分析区域">
+              <el-radio-group v-model="analysisStore.regionMode">
+                <el-radio value="full">全图</el-radio>
+                <el-radio value="rect">局部</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-form>
           <!-- 孔洞分析阈值 -->
           <template v-if="analysisStore.currentMode === 'hole'">
             <el-form label-width="90px" size="default" class="panel-form">
-              <el-form-item label="颜色匹配度">
+              <!-- 暂时先不做颜色匹配度调整 -->
+              <!-- <el-form-item label="颜色匹配度">
                 <el-slider v-model="analysisStore.holeThreshold.colorMatch" :min="0" :max="100" class="panel-slider" />
-              </el-form-item>
+              </el-form-item> -->
               <el-form-item label="最小阈值">
                 <el-slider v-model="analysisStore.holeThreshold.minThreshold" :min="0" :max="255" class="panel-slider" />
               </el-form-item>
@@ -104,11 +115,11 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { DocumentAdd, Refresh } from '@element-plus/icons-vue'
-import {useAnalysisStore} from '@/stores/analysisStore'
+import {useAnalysisStore, type CrackResults, type HoleResults, type SizeResults} from '@/stores/analysisStore'
 import {useImageStore} from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
-import { previewAnalysisMask } from '@/services/analysisProcessService'
+import { executeFullAnalysis, previewAnalysisMask } from '@/services/analysisProcessService'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
@@ -121,21 +132,21 @@ const {
   analysisRegion 
 } = storeToRefs(analysisStore)
 
-const activeNames = ref<string[]>(['1','2'])//默认展开阈值设置和分析结果
-// 防抖定时器，用于节流预览分析结果
+const activeNames = ref<string[]>(['1','2'])
+// 防抖处理，避免频繁调用
 let previewDebounceTimer: NodeJS.Timeout | null = null
-// 【关键新增】防抖预览蒙版
+//是否正在重置分析
+let isResetting = ref(false)
+// 防抖函数
 const debouncePreview = () => {
+  if (isResetting.value) {
+    return
+  }
   if (!imageStore.processedImageDataUrl) return
-
-  // 清除之前的定时器
   if (previewDebounceTimer) {
     clearTimeout(previewDebounceTimer)
   }
-
-  // 200ms防抖，避免频繁调用
   previewDebounceTimer = setTimeout(async () => {
-    // 获取当前阈值
     let threshold
     switch (currentMode.value) {
       case 'hole':
@@ -148,8 +159,6 @@ const debouncePreview = () => {
         threshold = sizeThreshold.value
         break
     }
-
-    // 调用预览，传入targetMaskMat
     await previewAnalysisMask(
       currentMode.value,
       imageStore.processedImageDataUrl,
@@ -159,54 +168,124 @@ const debouncePreview = () => {
     )
   }, 200)
 }
-//重置按钮点击事件
+
 const handleReset=()=>{
+  isResetting.value = true
+  if (previewDebounceTimer) {
+    clearTimeout(previewDebounceTimer)
+    previewDebounceTimer = null
+  }
   imageStore.resetImage()
+  analysisStore.resetAll()
+  analysisStore.clearTargetMask()
+  setTimeout(() => {
+    isResetting.value = false
+  }, 300)
   ElMessage.success('重置成功')
 }
-//生成分析报告点击事件
+
 const handleGenerateReport=()=>{
   ElMessage.success('生成分析报告成功')
 }
 
-// ==========================================
-// 【关键新增】监听：阈值变化时实时预览
-// ==========================================
-watch(
-  () => [
-    holeThreshold.value,
-    crackThreshold.value,
-    sizeThreshold.value
-  ],
-  () => {
+const handleStartAnalysis=async()=>{
+  if(!imageStore.processedImageDataUrl){
+    ElMessage.warning('请先打开图片')
+    return
+  }
+  analysisStore.isAnalyzing=true
+  try {
+    // 点击开始分析时，才显示预览蒙版
     debouncePreview()
-  },
-  { deep: true }
-)
+    let threshold
+    switch(currentMode.value){
+      case 'hole':
+        threshold=holeThreshold.value
+        break
+      case 'crack':
+        threshold=crackThreshold.value
+        break
+      case 'size':
+        threshold=sizeThreshold.value
+        break
+      default:
+        break
+    }
+    const results =await executeFullAnalysis(
+      currentMode.value,
+      imageStore.processedImageDataUrl,
+      threshold!,
+      analysisRegion.value,
+    )
+    if(results){
+      switch(currentMode.value){
+        case 'hole':
+          analysisStore.holeResults=results as HoleResults
+          break
+        case 'crack':
+          analysisStore.crackResults=results as CrackResults
+          break
+        case 'size':
+          analysisStore.sizeResults=results as SizeResults
+          break
+        default:
+          break
+      }
+    }
+  } catch (error) {
+    ElMessage.error('分析失败')
+  }finally{
+    analysisStore.isAnalyzing=false
+  }
+}
 
-// 监听：分析模式变化时重新预览
-watch(() => currentMode.value, () => {
-  debouncePreview()
+// ==========================================
+// 只保留阈值变化时的实时预览
+// ==========================================
+watch(()=>holeThreshold.value,()=>{
+  if (!isResetting.value) debouncePreview()
+},{deep:true})
+
+watch(()=>crackThreshold.value,()=>{
+  if (!isResetting.value) debouncePreview()
+},{deep:true})
+
+watch(()=>sizeThreshold.value,()=>{
+  if (!isResetting.value) debouncePreview()
+},{deep:true})
+
+// 【关键修改】删除切换分析模式时的自动预览
+// watch(() => currentMode.value, () => {
+//   if (!isResetting.value) debouncePreview()
+// })
+
+// 切换分析模式时：清空旧的蒙版和结果
+watch(() => currentMode.value, (newMode, oldMode) => {
+  if (newMode !== oldMode) {
+    console.log('🔄 切换分析模式，清空旧蒙版和结果')
+    analysisStore.clearTargetMask()
+    analysisStore.resetResults()
+  }
 })
 
-// 监听：分析区域变化时重新预览
 watch(() => analysisRegion.value, () => {
-  debouncePreview()
+  if (!isResetting.value) debouncePreview()
 }, { deep: true })
 
-// 监听：图片变化时重新预览
-watch(() => imageStore.processedImageDataUrl, () => {
-  if (imageStore.processedImageDataUrl) {
-    debouncePreview()
+watch(() => analysisStore.regionMode, (newMode, oldMode) => {
+  if (oldMode === 'full' && newMode === 'rect') {
+    analysisStore.resetResults()
+    analysisStore.clearTargetMask()
   }
 })
 
-// 组件挂载时初始化
-onMounted(() => {
-  if (imageStore.processedImageDataUrl) {
-    debouncePreview()
+watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
+  if (newUrl && newUrl !== oldUrl) {
+    analysisStore.clearTargetMask()
   }
 })
+
+
 </script>
 
 <style scoped>

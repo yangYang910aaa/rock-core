@@ -1,8 +1,8 @@
-// src/services/analysisProcessService.ts
 // 本函数用来 封装分析模式业务逻辑
 import cv from '@techstark/opencv-js'
 import { ElMessage } from 'element-plus'
-import type { Ref } from 'vue' // 新增：引入Ref类型
+import type { Ref } from 'vue'
+//类型和函数分开导入
 import type {
   AnalysisMode,
   AnalysisRegion,
@@ -11,7 +11,8 @@ import type {
   SizeThreshold,
   HoleResults,
   CrackResults,
-  SizeResults
+  SizeResults,
+  useAnalysisStore
 } from '@/stores/analysisStore'
 import {
   loadImageToMat,
@@ -19,7 +20,7 @@ import {
   crackSegmentation,
   sizeSegmentation,
   maskToVisual
-} from '@/utils/opencv' // 【关键修改】改成新路径
+} from '@/utils/opencv'
 
 /**
  * 实时预览：根据当前分析模式和阈值，生成目标蒙版
@@ -27,14 +28,14 @@ import {
  * @param imageDataUrl 原图DataURL
  * @param threshold 对应模式的阈值
  * @param region 分析区域
- * @param targetMaskMat 从组件传入的蒙版Ref（关键修改）
+ * @param targetMaskMat 从Store传入的蒙版Ref对象
  */
 export const previewAnalysisMask = async (
   mode: AnalysisMode,
   imageDataUrl: string,
   threshold: HoleThreshold | CrackThreshold | SizeThreshold,
   region: AnalysisRegion,
-  targetMaskMat: Ref<cv.Mat | null> // 新增参数
+  targetMaskMat: Ref<cv.Mat | null> // 明确是Ref类型
 ) => {
   try {
     // 1. 加载原图
@@ -60,21 +61,26 @@ export const previewAnalysisMask = async (
     // 3. 生成可视化红色蒙版
     const visualMask = maskToVisual(binaryMask, { width, height }, region)
 
-    // 4. 更新蒙版，释放内存（无报错写法）
-    targetMaskMat.value?.delete()
-    targetMaskMat.value = visualMask
+    // 正确修改Ref的.value属性！
+    const oldMask = targetMaskMat.value // 先拿到旧的Mat值
+    targetMaskMat.value = visualMask // 正确修改Ref的value，更新Store里的值
+    
+    // 安全释放旧蒙版内存
+    if (oldMask !== null && !oldMask.empty()) {
+      oldMask.delete()
+    }
 
-    // 5. 释放内存
+    // 5. 释放临时内存
     src.delete()
-    binaryMask.delete()
-
+    if (binaryMask !== null && !binaryMask.empty()) {
+      binaryMask.delete()
+    }
     return true
   } catch (error: any) {
     console.error('预览蒙版失败:', error)
     return false
   }
 }
-
 
 /**
  * 执行完整分析，计算分析结果
@@ -147,7 +153,7 @@ export const executeFullAnalysis = async (
       }
 
       case 'crack': {
-        // 裂缝分析结果计算（后续完善，先预留框架）
+        // 裂缝分析结果计算
         results = {
           totalCount: 0,
           totalLength: 0,
@@ -160,7 +166,7 @@ export const executeFullAnalysis = async (
       }
 
       case 'size': {
-        // 粒度分析结果计算（后续完善，先预留框架）
+        // 粒度分析结果计算
         results = {
           avgSize: 0,
           sortingCoefficient: 0,
@@ -176,7 +182,6 @@ export const executeFullAnalysis = async (
     return results
   } catch (error: any) {
     ElMessage.error(`分析失败：${error.message}`)
-    console.error('分析失败:', error)
     return null
   }
 }

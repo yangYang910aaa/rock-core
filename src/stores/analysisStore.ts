@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import {ref} from 'vue'
+import {ref,shallowRef} from 'vue'
 import cv from '@techstark/opencv-js'
 // ==========================================
 // 1. 类型定义
@@ -21,7 +21,7 @@ export interface AnalysisRegion{
 
 // 孔洞分析阈值
 export interface HoleThreshold{
-    colorMatch:number//颜色匹配度(0-100)
+    // colorMatch:number//颜色匹配度(0-100)
     minThreshold:number//最小阈值(0-255)
     maxThreshold:number//最大阈值(0-255)
 }
@@ -92,12 +92,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         width:0,
         height:0,
     })
-    const targetMaskMat = ref<cv.Mat | null>(null)//目标区域掩码
+    const targetMaskMat = shallowRef<cv.Mat | null>(null)//目标区域掩码矩阵
    // ==========================================
    // 4.3 阈值状态
    // ==========================================
     const holeThreshold=ref<HoleThreshold>({
-        colorMatch:50,
+        // colorMatch:50,
         minThreshold:0,
         maxThreshold:128,//默认阈值
     })
@@ -193,7 +193,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     //重置所有阈值
     const resetThresholds=()=>{
         holeThreshold.value={
-            colorMatch:50,
+            // colorMatch:50,
             minThreshold:0,
             maxThreshold:128,//默认阈值
         }
@@ -223,6 +223,15 @@ export const useAnalysisStore=defineStore('analysis',()=>{
             targetMaskMat.value = null
         }
     }
+        // 清空蒙版（单独方法，方便在多个场景调用）
+        const clearTargetMask = () => {
+            if (targetMaskMat.value) {
+                targetMaskMat.value.delete()
+                targetMaskMat.value = null
+            }
+        }
+
+
     // ==========================================
     // 6. 暴露给组件的状态和方法
     // ==========================================
@@ -250,6 +259,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     resetAnalysisRegion,
     resetResults,
     resetThresholds,
-    resetAll
+    resetAll,
+    clearTargetMask,
   }
 })

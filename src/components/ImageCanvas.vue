@@ -75,7 +75,7 @@ const {
     processedImageDataUrl
 } = storeToRefs(imageStore);
 
-// 【关键修改】从Store里解构目标蒙版状态
+// 从Store里解构目标蒙版状态
 const { targetMaskMat, analysisRegion, regionMode } = storeToRefs(analysisStore);
 
 // ==========================================
@@ -95,6 +95,14 @@ const tempRegion = ref<AnalysisRegion>({ x: 0, y: 0, width: 0, height: 0 });
 const scale = ref(1);
 const imageScale = ref<number>(1.0);
 const imageOffset = ref<{ x: number; y: number }>({ x: 0, y: 0 });
+// 图片在Canvas上的实际绘制参数，和蒙版绘制100%同步
+const imageDrawParams = ref({
+    drawX: 0,
+    drawY: 0,
+    drawWidth: 0,
+    drawHeight: 0
+});
+
 const SCALE_STEP = 0.1;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.0;
@@ -123,7 +131,7 @@ const initCanvasSize = async () => {
         return;
     }
 
-    // 所有Canvas尺寸统一
+    // 所有Canvas尺寸统一，和容器完全一致
     imageCanvasRef.value.width = containerWidth;
     imageCanvasRef.value.height = containerHeight;
     maskCanvasRef.value.width = containerWidth;
@@ -153,8 +161,8 @@ const drawImage = () => {
         const imgRatio = img.width / img.height;
         const canvasRatio = canvas.width / canvas.height;
 
+        // 计算图片在Canvas上的实际绘制位置和尺寸，和蒙版完全同步
         let drawWidth, drawHeight, drawX, drawY;
-
         if (imgRatio > canvasRatio) {
             drawWidth = canvas.width * scale.value;
             drawHeight = (canvas.width / imgRatio) * scale.value;
@@ -167,13 +175,16 @@ const drawImage = () => {
             drawY = (canvas.height - drawHeight) / 2;
         }
 
+        // 保存绘制参数，给蒙版绘制复用
+        imageDrawParams.value = { drawX, drawY, drawWidth, drawHeight };
         imageScale.value = drawWidth / img.width;
         imageOffset.value = { x: drawX, y: drawY };
 
+        // 绘制图片
         ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
         drawRegionMask();
-        drawTargetMask();
+        drawTargetMask(); // 图片绘制完成后，同步绘制蒙版
     };
 
     img.src = processedImageDataUrl.value;
@@ -224,30 +235,40 @@ const drawRegionMask = () => {
 };
 
 /**
- * 绘制红色目标蒙版
+ * 【完全重写】绘制红色目标蒙版，和岩石图片100%对齐
  */
 const drawTargetMask = () => {
-    if (!targetMaskCanvasRef.value || !targetMaskMat.value || targetMaskMat.value.empty()) return;
+    // 安全校验
+    if (!targetMaskCanvasRef.value || !targetMaskMat.value || targetMaskMat.value.empty()) {
+        // 蒙版为空时，清空画布
+        if (targetMaskCanvasRef.value) {
+            const ctx = targetMaskCanvasRef.value.getContext('2d')!;
+            ctx.clearRect(0, 0, targetMaskCanvasRef.value.width, targetMaskCanvasRef.value.height);
+        }
+        return;
+    }
 
     const canvas = targetMaskCanvasRef.value;
     const ctx = canvas.getContext('2d')!;
+    const { drawX, drawY, drawWidth, drawHeight } = imageDrawParams.value;
 
-    // 清空原有蒙版
+    // 1. 清空画布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 把OpenCV的蒙版绘制到Canvas上
-    cv.imshow(canvas, targetMaskMat.value);
+    // 2. 创建临时Canvas，绘制OpenCV的蒙版
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = targetMaskMat.value.cols;
+    tempCanvas.height = targetMaskMat.value.rows;
+    cv.imshow(tempCanvas, targetMaskMat.value);
 
-    // 应用图片缩放和偏移，和原图保持一致
-    ctx.globalCompositeOperation = 'destination-in';
+    // 3.把蒙版绘制到和岩石图片完全一致的位置、尺寸
     ctx.drawImage(
-        canvas,
-        imageOffset.value.x,
-        imageOffset.value.y,
-        canvas.width * imageScale.value * scale.value,
-        canvas.height * imageScale.value * scale.value
+        tempCanvas,
+        drawX,    
+        drawY,   
+        drawWidth,
+        drawHeight
     );
-    ctx.globalCompositeOperation = 'source-over';
 };
 
 /**
@@ -339,6 +360,11 @@ watch(targetMaskMat, () => {
     drawTargetMask();
 });
 
+// 监听缩放变化，同步重绘蒙版
+watch(scale, () => {
+    drawTargetMask();
+});
+
 // ==========================================
 // 7. 生命周期
 // ==========================================
@@ -348,7 +374,6 @@ onMounted(async () => {
     
     if (containerRef.value) {
         resizeObserver = new ResizeObserver(() => {
-            console.log('📐 容器尺寸变化，重新初始化 Canvas');
             initCanvasSize();
         });
         resizeObserver.observe(containerRef.value);
@@ -359,6 +384,10 @@ onUnmounted(() => {
     if (resizeObserver) {
         resizeObserver.disconnect();
         resizeObserver = null;
+    }
+    // 组件卸载时释放蒙版内存
+    if (targetMaskMat.value) {
+        targetMaskMat.value.delete();
     }
     window.removeEventListener('resize', initCanvasSize);
 });
