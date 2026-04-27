@@ -37,9 +37,9 @@ export interface CrackThreshold{
 
 //粒度分析阈值
 export interface SizeThreshold{
-    minSize:number//最小粒径(0-1)
-    maxSize:number//最大粒径(0-1)
-    gradeCount:number//粒度等级数量
+    rockBrightnessThreshold:number//岩石亮度阈值(0-255):分离岩石实体和空隙
+    coarseSensitivity:number//粗粒度敏感度(0-100):大岩块/粗纹理的检测灵敏度
+    fineSensitivity:number//细粒度敏感度(0-100):细纹理/细颗粒的检测灵敏度
 }
 
 // ==========================================
@@ -68,9 +68,12 @@ export interface CrackResults{
 
 ///粒度分析结果
 export interface SizeResults{
-    avgSize:number//平均粒径(mm)
-    sortingCoefficient:number//分选系数
-    distribution:number[]//粒度分布(每级的百分比)
+    totalParticleCount:number // 总颗粒区域数
+    avgParticleSize:number // 平均粒径(mm)
+    coarseParticleRatio:number // 粗颗粒占比(%)
+    fineParticleRatio:number // 细颗粒占比(%)
+    particleUniformity:number // 颗粒均匀度
+    rockParticleRate:number // 岩石颗粒占比(%)
 }
 
 // ==========================================
@@ -112,9 +115,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         cannyHigh:150,//默认Canny高检测阈值
     })
     const sizeThreshold=ref<SizeThreshold>({
-        minSize:0.1,
-        maxSize:10.0,
-        gradeCount:5,//默认粒度等级数量
+        rockBrightnessThreshold:80,
+        coarseSensitivity:50,
+        fineSensitivity:50,
     })
    // ==========================================
    // 4.4 分析结果状态
@@ -136,9 +139,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         areaDensity:0,
     })
     const sizeResults=ref<SizeResults>({
-        avgSize:0,
-        sortingCoefficient:0,
-        distribution:[],
+        totalParticleCount:0,
+        avgParticleSize:0,
+        coarseParticleRatio:0,
+        fineParticleRatio:0,
+        particleUniformity:0,
+        rockParticleRate:0,
     })
     // ==========================================
     // 5. 基础操作
@@ -190,9 +196,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
             areaDensity:0,
         }
         sizeResults.value={
-            avgSize:0,
-            sortingCoefficient:0,
-            distribution:[],
+            totalParticleCount:0,
+            avgParticleSize:0,
+            coarseParticleRatio:0,
+            fineParticleRatio:0,
+            particleUniformity:0,
+            rockParticleRate:0,
         }
     }
     //重置所有阈值
@@ -210,9 +219,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
             cannyHigh:150,
         }
         sizeThreshold.value={
-            minSize:0.1,
-            maxSize:10.0,
-            gradeCount:5,
+            rockBrightnessThreshold:80,
+            coarseSensitivity:50,
+            fineSensitivity:50,
         }
     }
     //重置全部状态

@@ -61,15 +61,16 @@
           </template>
           <!-- 粒度分析阈值 -->
            <template v-else-if="analysisStore.currentMode === 'size'">
-            <el-form label-width="90px" size="default" class="panel-form">
-              <el-form-item label="最小粒径">
-                <el-input-number v-model="analysisStore.sizeThreshold.minSize" :min="0" :step="0.1" style="width: 100%;" />
+            <!-- 【修复1】label-width从10px改成110px，和整体风格统一 -->
+            <el-form label-width="110px" size="default" class="panel-form">
+              <el-form-item label="岩石亮度阈值">
+                <el-slider v-model="analysisStore.sizeThreshold.rockBrightnessThreshold" :min="0" :max="255" class="panel-slider" />
               </el-form-item>
-              <el-form-item label="最大粒径">
-                <el-input-number v-model="analysisStore.sizeThreshold.maxSize" :min="0" :step="0.1" style="width: 100%;" />
+              <el-form-item label="粗颗粒灵敏度">
+                <el-slider v-model="analysisStore.sizeThreshold.coarseSensitivity" :min="0" :max="100" class="panel-slider" />
               </el-form-item>
-              <el-form-item label="分级数">
-                <el-input-number v-model="analysisStore.sizeThreshold.gradeCount" :min="2" :max="10" :step="1" style="width: 100%;" />
+              <el-form-item label="细颗粒灵敏度">
+                <el-slider v-model="analysisStore.sizeThreshold.fineSensitivity" :min="0" :max="100" class="panel-slider" />
               </el-form-item>
             </el-form>
            </template>
@@ -100,21 +101,17 @@
             </el-descriptions>
            </template>
 
-           <!-- 粒度分析结果 -->
-            <template v-else-if="analysisStore.currentMode === 'size'">
-                 <el-descriptions :column="1" size="default" border class="result-table">
-              <el-descriptions-item label="平均粒径">{{ analysisStore.sizeResults.avgSize }} mm</el-descriptions-item>
-              <el-descriptions-item label="分选系数">{{ analysisStore.sizeResults.sortingCoefficient }}</el-descriptions-item>
-              <el-descriptions-item label="粒度分布">
-                <div v-if="analysisStore.sizeResults.distribution.length > 0">
-                  <div v-for="(item, index) in analysisStore.sizeResults.distribution" :key="index" style="font-size: 12px; margin-bottom: 4px;">
-                    第{{ index + 1 }}级: {{ item }}%
-                  </div>
-                </div>
-                <div v-else>暂无数据</div>
-              </el-descriptions-item>
+           <!-- 【修复2】粒度分析结果改成el-descriptions，和其他两个模式完全统一，彻底解决排版错乱 -->
+           <template v-else-if="analysisStore.currentMode === 'size'">
+            <el-descriptions :column="1" size="default" border class="result-table">
+              <el-descriptions-item label="总颗粒区域数">{{ analysisStore.sizeResults.totalParticleCount }}</el-descriptions-item>
+              <el-descriptions-item label="平均粒径">{{ analysisStore.sizeResults.avgParticleSize }} mm</el-descriptions-item>
+              <el-descriptions-item label="粗颗粒占比">{{ analysisStore.sizeResults.coarseParticleRatio }} %</el-descriptions-item>
+              <el-descriptions-item label="细颗粒占比">{{ analysisStore.sizeResults.fineParticleRatio }} %</el-descriptions-item>
+              <el-descriptions-item label="颗粒均匀度">{{ analysisStore.sizeResults.particleUniformity }}</el-descriptions-item>
+              <el-descriptions-item label="岩石颗粒占比">{{ analysisStore.sizeResults.rockParticleRate }} %</el-descriptions-item>
             </el-descriptions>
-            </template>
+          </template>
         </el-collapse-item>
       </el-collapse>
     </div>
@@ -122,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 import { DocumentAdd, Refresh } from '@element-plus/icons-vue'
 import {useAnalysisStore, type CrackResults, type HoleResults, type SizeResults} from '@/stores/analysisStore'
 import {useImageStore} from '@/stores/imageStore'
@@ -261,10 +258,12 @@ watch(()=>[crackThreshold.value.cannyLow,crackThreshold.value.cannyHigh],()=>{
 })
 
 // 粒度分析切换阈值时：实时预览
-watch(()=>sizeThreshold.value,()=>{
-  if (!isResetting.value && currentMode.value === 'size') debouncePreview()
-},{deep:true})
-
+watch(()=>[
+  sizeThreshold.value.rockBrightnessThreshold,
+  sizeThreshold.value.coarseSensitivity,
+  sizeThreshold.value.fineSensitivity],()=>{
+    if (!isResetting.value && currentMode.value === 'size') debouncePreview()
+  })
 // 切换分析模式时：清空旧的蒙版和结果
 watch(() => currentMode.value, (newMode, oldMode) => {
   if (newMode !== oldMode) {
@@ -381,7 +380,7 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
 }
 
 :deep(.el-descriptions__label) {
-  width: 90px;
+  width: 120px; /* 统一标签宽度，三个模式完全对齐 */
   font-weight: 500;
 }
 

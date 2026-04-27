@@ -98,34 +98,96 @@ export const crackSegmentation = (
     edges.delete()
   }
 }
-
 /**
- * 【粒度分析】阈值分割
+ * 完整岩心粒度分析
+ * 核心：所有参数可通过界面滑块实时调整，和孔洞/裂缝分析交互一致
  */
 export const sizeSegmentation = (
   src: cv.Mat,
   threshold: SizeThreshold,
   region: AnalysisRegion
-): { mask: cv.Mat, contours: cv.MatVector } => {
+): { mask: cv.Mat,rockMask: cv.Mat, contours: cv.MatVector, hierarchy: cv.Mat } => {
   const roiSrc = cropAnalysisRegion(src, region)
   const gray = new cv.Mat()
-  const binary = new cv.Mat()
-  const mask = new cv.Mat()
+  const blurBase = new cv.Mat()// 基础去噪
+  const voidMask = new cv.Mat() // 空隙/裂缝
+  const rockMask = new cv.Mat() // 岩石实体
+  const textureMask = new cv.Mat()
+  const finalMask = new cv.Mat()
   const contours = new cv.MatVector()
   const hierarchy = new cv.Mat()
 
   try {
+    console.log('🔄 开始岩心粒度分析（实体颗粒提取）...')
+
+    // 1. 预处理：转灰度图 + 基础去噪
     cv.cvtColor(roiSrc, gray, cv.COLOR_BGRA2GRAY)
-    cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
-    const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3))
-    cv.morphologyEx(binary, mask, cv.MORPH_OPEN, kernel)
-    kernel.delete()
-    cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-    return { mask, contours }
+    cv.medianBlur(gray, blurBase, 3)
+    //先检查裁剪后的图像是否有效
+    if (roiSrc.empty()) {
+      throw new Error('裁剪后的分析区域为空')
+    }
+    //2.从阈值参数读取岩石亮度阈值，分离岩石和空隙
+    const {rockBrightnessThreshold,coarseSensitivity,fineSensitivity} = threshold
+    cv.threshold(blurBase, voidMask, rockBrightnessThreshold, 255, cv.THRESH_BINARY_INV)
+    // 取反得到岩石实体掩码：只在岩石实体上做粒度分析
+    cv.bitwise_not(voidMask, rockMask)
+    console.log('✅ 岩石实体区域分离完成，已排除空隙裂缝')
+
+    //3. 粗颗粒灵敏度：把0-100的滑块值，转换成对应的阈值
+    const coarseThreshold = Math.max(2,20-(coarseSensitivity/100)*15) //灵敏度越高,阈值越低,越容易检测到粗颗粒
+    const coarseKernelSize=11+Math.floor((coarseSensitivity/100)*7)*2 //11-25的核大小
+    const coarseBlur = new cv.Mat()
+    const coarseDiff = new cv.Mat()
+    cv.GaussianBlur(blurBase, coarseBlur, new cv.Size(coarseKernelSize, coarseKernelSize), 0)
+    cv.absdiff(blurBase, coarseBlur, coarseDiff)
+    cv.threshold(coarseDiff, coarseDiff, coarseThreshold, 255, cv.THRESH_BINARY)
+    coarseBlur.delete()
+
+    //4. 细颗粒灵敏度：把0-100的滑块值，转换成对应的阈值
+    const fineThreshold = Math.max(1,10-(fineSensitivity/100)*8) //灵敏度越高,阈值越低,越容易检测到细颗粒
+    const fineKernelSize=3+Math.floor((fineSensitivity/100)*4)*2 //3-11的核大小
+    const fineBlur = new cv.Mat()
+    const fineDiff = new cv.Mat()
+    cv.GaussianBlur(blurBase, fineBlur, new cv.Size(fineKernelSize, fineKernelSize), 0)
+    cv.absdiff(blurBase, fineBlur, fineDiff)
+    cv.threshold(fineDiff, fineDiff, fineThreshold, 255, cv.THRESH_BINARY)
+    fineBlur.delete()
+
+    // 5.合并纹理，只保留岩石实体区域
+    cv.add(coarseDiff, fineDiff, textureMask)
+    cv.bitwise_and(textureMask, rockMask, textureMask) // 关键：排除空隙区域
+    coarseDiff.delete()
+    fineDiff.delete()
+    console.log('✅ 岩石颗粒纹理提取完成')
+
+    // 6. 形态学优化：去除噪点，连接颗粒轮廓
+    const kernelClose = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(4, 4))
+    cv.morphologyEx(textureMask, finalMask, cv.MORPH_CLOSE, kernelClose)
+    kernelClose.delete()
+
+    const kernelOpen = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2, 2))
+    cv.morphologyEx(finalMask, finalMask, cv.MORPH_OPEN, kernelOpen)
+    kernelOpen.delete()
+
+    // 7. 提取颗粒轮廓
+    cv.findContours(finalMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    console.log('✅ 粒度分析完成，检测到岩石颗粒区域数：', contours.size())
+
+    return { mask: finalMask,rockMask:rockMask.clone(), contours, hierarchy }
+  } catch (error) {
+    console.error('❌ 粒度分析失败:', error)
+    const emptyMask = new cv.Mat()
+    const emptyContours = new cv.MatVector()
+    const emptyHierarchy = new cv.Mat()
+    return { mask: emptyMask,rockMask: rockMask.clone(), contours: emptyContours, hierarchy: emptyHierarchy }
   } finally {
-    roiSrc.delete()
-    gray.delete()
-    binary.delete()
-    hierarchy.delete()
+    // 释放所有中间内存
+     if (!roiSrc.empty()) roiSrc.delete()
+    if (!gray.empty()) gray.delete()
+    if (!blurBase.empty()) blurBase.delete()
+    if (!voidMask.empty()) voidMask.delete()
+    // 注意：rockMask不能在这里释放，要返回给上层使用
+    if (!textureMask.empty()) textureMask.delete()
   }
 }
