@@ -31,6 +31,8 @@ export interface CrackThreshold{
     minWidth:number//最小裂缝宽度(0-1)
     maxWidth:number//最大裂缝宽度(0-1)
     minLength:number//最小裂缝长度(像素)
+    cannyLow:number//Canny低检测阈值(0-255)
+    cannyHigh:number//Canny高检测阈值(0-255)
 }
 
 //粒度分析阈值
@@ -105,6 +107,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         minWidth:0.1,
         maxWidth:5.0,
         minLength:10,//默认阈值
+        cannyLow:50,//默认Canny低检测阈值
+        cannyHigh:150,//默认Canny高检测阈值
     })
     const sizeThreshold=ref<SizeThreshold>({
         minSize:0.1,
@@ -201,6 +205,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
             minWidth:0.1,
             maxWidth:5.0,
             minLength:10,//默认阈值
+            cannyLow:50,//默认Canny低检测阈值
+            cannyHigh:150,//默认Canny高检测阈值
         }
         sizeThreshold.value={
             minSize:0.1,

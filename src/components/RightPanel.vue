@@ -38,7 +38,16 @@
           </template>
           <!-- 裂缝分析阈值 -->
           <template v-else-if="analysisStore.currentMode === 'crack'">
-            <el-form label-width="90px" size="default" class="panel-form">
+            <el-form label-width="100px" size="default" class="panel-form">
+              <!-- Canny低阈值 -->
+              <el-form-item label="Canny低阈值">
+                <el-slider v-model="analysisStore.crackThreshold.cannyLow" :min="0" :max="255"  class="panel-slider" />
+              </el-form-item>
+              <!-- Canny高阈值 -->
+              <el-form-item label="Canny高阈值">
+                <el-slider v-model="analysisStore.crackThreshold.cannyHigh" :min="0" :max="255" class="panel-slider" />
+              </el-form-item>
+              <!-- 最小宽度 -->
               <el-form-item label="最小宽度">
                 <el-input-number v-model="analysisStore.crackThreshold.minWidth" :min="0" :step="0.1" style="width: 100%;" />
               </el-form-item>
@@ -168,7 +177,7 @@ const debouncePreview = () => {
     )
   }, 200)
 }
-
+// 重置分析
 const handleReset=()=>{
   isResetting.value = true
   if (previewDebounceTimer) {
@@ -183,11 +192,11 @@ const handleReset=()=>{
   }, 300)
   ElMessage.success('重置成功')
 }
-
+// 生成分析报告
 const handleGenerateReport=()=>{
   ElMessage.success('生成分析报告成功')
 }
-
+// 开始分析
 const handleStartAnalysis=async()=>{
   if(!imageStore.processedImageDataUrl){
     ElMessage.warning('请先打开图片')
@@ -242,36 +251,37 @@ const handleStartAnalysis=async()=>{
 // ==========================================
 // 只保留阈值变化时的实时预览
 // ==========================================
+
+// 孔洞分析切换阈值时：实时预览
 watch(()=>holeThreshold.value,()=>{
-  if (!isResetting.value) debouncePreview()
+  if (!isResetting.value && currentMode.value === 'hole') debouncePreview()
 },{deep:true})
 
-watch(()=>crackThreshold.value,()=>{
-  if (!isResetting.value) debouncePreview()
-},{deep:true})
+// 裂缝分析切换阈值时：实时预览
+watch(()=>[crackThreshold.value.cannyLow,crackThreshold.value.cannyHigh],()=>{
+    if (!isResetting.value && currentMode.value === 'crack') {
+    debouncePreview()
+  }
+})
 
+// 粒度分析切换阈值时：实时预览
 watch(()=>sizeThreshold.value,()=>{
-  if (!isResetting.value) debouncePreview()
+  if (!isResetting.value && currentMode.value === 'size') debouncePreview()
 },{deep:true})
-
-// 【关键修改】删除切换分析模式时的自动预览
-// watch(() => currentMode.value, () => {
-//   if (!isResetting.value) debouncePreview()
-// })
 
 // 切换分析模式时：清空旧的蒙版和结果
 watch(() => currentMode.value, (newMode, oldMode) => {
   if (newMode !== oldMode) {
-    console.log('🔄 切换分析模式，清空旧蒙版和结果')
     analysisStore.clearTargetMask()
     analysisStore.resetResults()
   }
 })
-
+// 切换分析区域时：实时预览
 watch(() => analysisRegion.value, () => {
   if (!isResetting.value) debouncePreview()
 }, { deep: true })
 
+// 切换分析区域模式时：清空旧的蒙版和结果
 watch(() => analysisStore.regionMode, (newMode, oldMode) => {
   if (oldMode === 'full' && newMode === 'rect') {
     analysisStore.resetResults()
@@ -279,6 +289,7 @@ watch(() => analysisStore.regionMode, (newMode, oldMode) => {
   }
 })
 
+// 切换图片时：清空旧的蒙版
 watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   if (newUrl && newUrl !== oldUrl) {
     analysisStore.clearTargetMask()
@@ -363,7 +374,7 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   margin-top: 8px;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 4px; /* 滑块左右加了留白，不会贴到边缘 */
+  padding: 0 6px; /* 滑块左右加了留白，不会贴到边缘 */
 }
 
 /* 分析结果表格：加了右内边距，和整体对齐 */

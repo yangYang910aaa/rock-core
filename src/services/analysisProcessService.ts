@@ -154,14 +154,72 @@ export const executeFullAnalysis = async (
 
       case 'crack': {
         // 裂缝分析结果计算
+        const binaryMask=crackSegmentation(src, threshold as CrackThreshold, region)
+        const contours=new cv.MatVector()       
+        const hierarchy=new cv.Mat()
+        // 1. 查找裂缝轮廓
+        cv.findContours(binaryMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        
+        // 2. 获取裂缝过滤参数
+        const crackThresh=threshold as CrackThreshold
+        const minWidth=crackThresh.minWidth
+        const maxWidth=crackThresh.maxWidth
+        const minLength=crackThresh.minLength
+        const pixelToMm=0.1 // 默认1像素=0.1mm，后续对接标尺设置
+
+        // 3. 计算裂缝参数
+        let totalCount=0 
+        let totalLength=0
+        let totalWidth=0 
+        let totalCrackArea=0 
+
+        for(let i=0;i<contours.size();i++){
+          const contour=contours.get(i)
+          //计算裂缝长度(弧长,不考虑方向)
+          const length=cv.arcLength(contour,false)*pixelToMm
+          if(length<minLength) continue // 过滤长度小于最小值的裂缝
+
+          //计算裂缝宽度(用最小外接矩形的短边近似)
+          const rect=cv.minAreaRect(contour)
+          const width=Math.min(rect.size.width,rect.size.height)*pixelToMm
+          if(width<minWidth||width>maxWidth) continue // 过滤宽度不在范围的裂缝
+
+          //计算裂缝面积(用最小外接矩形的面积)
+          const area=cv.contourArea(contour)*pixelToMm*pixelToMm
+
+          //统计符合条件的裂缝
+          totalCount++
+          totalLength+=length
+          totalWidth+=width
+          totalCrackArea+=area
+        }
+        //4.计算分析区域总面积(平方毫米)
+        const regionAreaMm2=region.width>0
+        ? region.width*region.height*pixelToMm*pixelToMm
+        :width*height*pixelToMm*pixelToMm
+        // 分析区域面积转成平方米（1平方米 = 1000000平方毫米）
+        const regionAreaM2=regionAreaMm2/1000000
+        // 裂缝总长度转成米
+        const totalLengthM = totalLength / 1000
+        
+        //5.计算分析区域对角线长度（用于线密度，单位：米）
+        const regionDiagonalLength=region.width>0
+        ? Math.sqrt(region.width*region.width+region.height*region.height)*pixelToMm/1000
+        : Math.sqrt(width*width+height*height)*pixelToMm/1000
+
+        //6.组装结果
         results = {
-          totalCount: 0,
-          totalLength: 0,
-          avgWidth: 0,
-          faceRate: 0,
-          lineDensity: 0,
-          areaDensity: 0
+          totalCount: totalCount,
+          totalLength: Number(totalLength.toFixed(4)),
+          avgWidth: totalCount>0? Number((totalWidth/totalCount).toFixed(4)):0,
+          faceRate: Number(((totalCrackArea/regionAreaMm2)*100).toFixed(2)),
+          lineDensity: regionDiagonalLength>0 ?Number((totalCount/regionDiagonalLength).toFixed(4)):0, //条/m
+          areaDensity: regionAreaM2>0 ? Number((totalLengthM/regionAreaM2).toFixed(4)):0 // //m/m²
         } as CrackResults
+        //7.释放内存
+        binaryMask.delete()
+        contours.delete()
+        hierarchy.delete()
         break
       }
 

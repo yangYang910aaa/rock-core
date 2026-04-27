@@ -1,4 +1,3 @@
-// src/utils/opencv/analysis.ts
 // 分析模式工具函数
 import cv from '@techstark/opencv-js'
 import type {
@@ -55,19 +54,41 @@ export const crackSegmentation = (
   threshold: CrackThreshold,
   region: AnalysisRegion
 ): cv.Mat => {
-  const roiSrc = cropAnalysisRegion(src, region)
+  const roiSrc = cropAnalysisRegion(src, region) // 裁剪分析区域
+  // 转换为灰度图
   const gray = new cv.Mat()
+  // 高斯模糊
   const blur = new cv.Mat()
+  // Canny边缘检测
   const edges = new cv.Mat()
+  // 膨胀
   const dst = new cv.Mat()
 
   try {
+    // 1.转换为灰度图
     cv.cvtColor(roiSrc, gray, cv.COLOR_BGRA2GRAY)
+    // 2. 高斯滤波：去除噪点，核大小5x5
     cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0)
-    cv.Canny(blur, edges, 50, 150)
-    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2))
-    cv.dilate(edges, dst, kernel)
-    kernel.delete()
+    // 3. Canny边缘检测：提取裂缝边缘
+    cv.Canny(blur, edges, threshold.cannyLow, threshold.cannyHigh)
+    // 4. 形态学膨胀：把断裂的裂缝连接起来
+    // 核大小2x2，迭代次数2，让裂缝更连续
+    const kernelDilate = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2))
+    cv.dilate(edges,dst,kernelDilate,new cv.Point(-1,-1),2)
+    kernelDilate.delete()
+    
+    // 5. 形态学闭运算：填充裂缝内部的小空洞
+    const kernelClose=cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3))
+    cv.morphologyEx(dst, dst, cv.MORPH_CLOSE, kernelClose)
+    kernelClose.delete()
+    
+    // 6. 形态学开运算：去除细小的噪点
+    const kernelOpen=cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2))
+    cv.morphologyEx(dst, dst, cv.MORPH_OPEN, kernelOpen)
+    kernelOpen.delete()
+    return dst
+  } catch (error) {
+    console.error('裂缝分析阈值分割失败:', error)
     return dst
   } finally {
     roiSrc.delete()
