@@ -16,14 +16,12 @@ export const initOpenCV = async (): Promise<void> => {
     if (cv.Mat) {
         //OpenCV 已初始化，创建临时Canvas
       createTempCanvas()
-      console.log('✅ OpenCV.js 加载完成')
       resolve()
       return
     }
     //OpenCV 未初始化，等待初始化完成
     cv['onRuntimeInitialized'] = () => {
       createTempCanvas()
-      console.log('✅ OpenCV.js 加载完成')
       resolve()
     }
   })
@@ -100,14 +98,17 @@ export const maskToVisual=(
     region:AnalysisRegion,
     color:{r:number,g:number,b:number,a:number}={r:255,g:0,b:0,a:128}
 ):cv.Mat=>{
+  //创建可视化蒙版
     const visualMask=new cv.Mat(srcSize.height,srcSize.width,cv.CV_8UC4,new cv.Scalar(0,0,0,0))
     if(region.width>0 && region.height>0){
-        const roi=visualMask.roi(new cv.Rect(
+      //裁剪分析区域
+      const roi=visualMask.roi(new cv.Rect(
             Math.max(0,region.x),
             Math.max(0,region.y),
             Math.min(srcSize.width-region.x,binaryMask.cols),
             Math.min(srcSize.height-region.y,binaryMask.rows)
         ))
+        //将二值蒙版转换为RGBA蒙版
         const channels=new cv.MatVector()
         cv.split(roi,channels)
         cv.threshold(binaryMask, channels.get(0), 127, color.r, cv.THRESH_BINARY)

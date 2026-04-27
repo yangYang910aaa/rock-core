@@ -101,7 +101,6 @@ const handleOpenDevTools=()=>{
 .title-bar-wrapper {
   width: 100%;
   height: 48px;
-  /* 优化背景色：更柔和的深蓝，增加轻微渐变提升质感 */
   background: linear-gradient(180deg, #233046 0%, #1e293b 100%);
   display: flex;
   align-items: center;
@@ -109,7 +108,6 @@ const handleOpenDevTools=()=>{
   padding: 0 8px;
   box-sizing: border-box;
   user-select: none;
-  /* 增加轻微阴影，区分内容区域 */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 

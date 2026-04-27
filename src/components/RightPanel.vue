@@ -248,10 +248,6 @@ const handleStartAnalysis=async()=>{
   }
 }
 
-// ==========================================
-// 只保留阈值变化时的实时预览
-// ==========================================
-
 // 孔洞分析切换阈值时：实时预览
 watch(()=>holeThreshold.value,()=>{
   if (!isResetting.value && currentMode.value === 'hole') debouncePreview()
@@ -329,11 +325,10 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   font-size: 16px;
   border-radius: 6px;
 }
-/* 【核心优化】内容区整体加了充足的右内边距，给右侧留足留白 */
+/*内容区整体加了充足的右内边距，给右侧留足留白 */
 .panel-content {
   flex: 1;
   overflow-y: auto;
-  /* 左16px + 右32px的内边距，右侧留白充足，不会贴边 */
   padding: 12px 32px 12px 16px;
   box-sizing: border-box;
 }
@@ -369,7 +364,7 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   box-sizing: border-box;
 }
 
-/* 【关键优化】滑块加了左右内边距，两端不会被截断，视觉更舒适 */
+/* 滑块加了左右内边距，两端不会被截断，视觉更舒适 */
 :deep(.panel-slider) {
   margin-top: 8px;
   width: 100%;

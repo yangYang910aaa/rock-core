@@ -235,7 +235,7 @@ const drawRegionMask = () => {
 };
 
 /**
- * 【完全重写】绘制红色目标蒙版，和岩石图片100%对齐
+ * 绘制红色目标蒙版，和岩石图片对齐
  */
 const drawTargetMask = () => {
     // 安全校验

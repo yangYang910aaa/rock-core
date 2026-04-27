@@ -34,6 +34,7 @@ export const holeSegmentation = (
     lowerBound.delete()
     upperBound.delete()
 
+    //卷积核大小3x3
     const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3))
     cv.morphologyEx(binary, dst, cv.MORPH_CLOSE, kernel)
     cv.morphologyEx(dst, dst, cv.MORPH_OPEN, kernel)

@@ -94,19 +94,20 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         width:0,
         height:0,
     })
-    const targetMaskMat = shallowRef<cv.Mat | null>(null)//目标区域掩码矩阵
+    //目标区域掩码矩阵
+    const targetMaskMat = shallowRef<cv.Mat | null>(null)
    // ==========================================
    // 4.3 阈值状态
    // ==========================================
     const holeThreshold=ref<HoleThreshold>({
         // colorMatch:50,
         minThreshold:0,
-        maxThreshold:128,//默认阈值
+        maxThreshold:128,
     })
     const crackThreshold=ref<CrackThreshold>({
         minWidth:0.1,
         maxWidth:5.0,
-        minLength:10,//默认阈值
+        minLength:10,
         cannyLow:50,//默认Canny低检测阈值
         cannyHigh:150,//默认Canny高检测阈值
     })
@@ -199,19 +200,19 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         holeThreshold.value={
             // colorMatch:50,
             minThreshold:0,
-            maxThreshold:128,//默认阈值
+            maxThreshold:128,
         }
         crackThreshold.value={
             minWidth:0.1,
             maxWidth:5.0,
-            minLength:10,//默认阈值
-            cannyLow:50,//默认Canny低检测阈值
-            cannyHigh:150,//默认Canny高检测阈值
+            minLength:10,
+            cannyLow:50,
+            cannyHigh:150,
         }
         sizeThreshold.value={
             minSize:0.1,
             maxSize:10.0,
-            gradeCount:5,//默认粒度等级数量
+            gradeCount:5,
         }
     }
     //重置全部状态
@@ -229,7 +230,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
             targetMaskMat.value = null
         }
     }
-        // 清空蒙版（单独方法，方便在多个场景调用）
+        // 清空蒙版
         const clearTargetMask = () => {
             if (targetMaskMat.value) {
                 targetMaskMat.value.delete()
