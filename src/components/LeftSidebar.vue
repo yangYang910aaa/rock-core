@@ -133,7 +133,8 @@ const imageStore=useImageStore()
 
 //解构Store状态
 const {currentMode:analysisMode,regionMode}=storeToRefs(analysisStore)
-const {isImageLoaded}=storeToRefs(imageStore)
+const {isImageLoaded,scaleType:storeScaleType}=storeToRefs(imageStore)
+const {setScaleType}=imageStore
 //原有状态
 const activeNames = ref<string[]>(['1']) // 标尺设置面板默认展开
 const scaleType = ref<'macro' | 'micro'>('macro') // 标尺类型，默认宏观
@@ -192,6 +193,12 @@ const confirmSaturationAdjust=async()=>{
   await imageStore.executeProcess('saturation')
   saturationDialogVisible.value=false
 }
+
+// 监听标尺类型变化,同步到Store
+scaleType.value=storeScaleType.value
+watch(scaleType,(newType)=>{
+  setScaleType(newType)
+})
 </script>
 
 <style scoped>

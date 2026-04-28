@@ -27,6 +27,9 @@ export type BrightContrastParams = {
   beta: number // 亮度系数(-100~100，默认0)
 }
 
+// 标尺类型
+export type ScaleType='macro'|'micro'
+
 // ==========================================
 // 2. Store 定义
 // ==========================================
@@ -56,6 +59,14 @@ export const useImageStore = defineStore('image', () => {
   const saturationFactor = ref<number>(1.0) // 饱和度系数
 
   // ==========================================
+  // 2.4 标尺相关状态
+  // ==========================================
+  // 标尺类型：macro=宏观(mm)，micro=微观(μm)
+  const scaleType = ref<ScaleType>('macro')
+  // 像素转毫米系数：1像素对应多少毫米（默认0.1，后续可以支持用户手动输入）
+  const pixelToMm = ref<number>(0.1)
+
+  // ==========================================
   // 3. 基础状态操作
   // ==========================================
 
@@ -80,6 +91,16 @@ export const useImageStore = defineStore('image', () => {
     isImageProcessed.value = true
   }
 
+  // ==========================================
+  // 标尺相关方法
+  // ==========================================
+  const setScaleType=(type:ScaleType)=>{
+    scaleType.value=type
+    ElMessage.success(`已切换到${type==='macro'?'宏观(mm)':'微观(μm)'}模式`)
+  }
+  const setPixelToMm=(value:number)=>{
+    pixelToMm.value=value
+  }
   /**
    * 重置图片信息（恢复原图）
    */
@@ -179,6 +200,9 @@ export const useImageStore = defineStore('image', () => {
     // 预处理参数
     bcParams,
     saturationFactor,
+    // 标尺相关状态
+    scaleType,
+    pixelToMm,
     // 基础方法
     setImage,
     setProcessedImage,
@@ -189,6 +213,9 @@ export const useImageStore = defineStore('image', () => {
     // OpenCV 方法
     initOpenCV,
     // 图像处理入口
-    executeProcess
+    executeProcess,
+    // 标尺相关方法
+    setScaleType,
+    setPixelToMm,
   }
 })

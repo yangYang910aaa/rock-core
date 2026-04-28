@@ -82,10 +82,10 @@
           <template v-if="analysisStore.currentMode === 'hole'">
             <el-descriptions :column="1" size="default" border class="result-table">
               <el-descriptions-item label="孔洞总数">{{ analysisStore.holeResults.totalCount }}</el-descriptions-item>
-              <el-descriptions-item label="孔洞总面积">{{ analysisStore.holeResults.totalArea }} mm²</el-descriptions-item>
-              <el-descriptions-item label="平均孔径">{{ analysisStore.holeResults.avgDiameter }} mm</el-descriptions-item>
-              <el-descriptions-item label="最大孔径">{{ analysisStore.holeResults.maxDiameter }} mm</el-descriptions-item>
-              <el-descriptions-item label="最小孔径">{{ analysisStore.holeResults.minDiameter }} mm</el-descriptions-item>
+              <el-descriptions-item label="孔洞总面积">{{ (analysisStore.holeResults.totalArea *unitScale*unitScale).toFixed(4) }} {{currentUnit}}²</el-descriptions-item>
+              <el-descriptions-item label="平均孔径">{{ (analysisStore.holeResults.avgDiameter *unitScale).toFixed(4) }} {{currentUnit}}</el-descriptions-item>
+              <el-descriptions-item label="最大孔径">{{ (analysisStore.holeResults.maxDiameter *unitScale).toFixed(4) }} {{currentUnit}}</el-descriptions-item>
+              <el-descriptions-item label="最小孔径">{{ (analysisStore.holeResults.minDiameter *unitScale).toFixed(4) }} {{currentUnit}}</el-descriptions-item>
               <el-descriptions-item label="面孔率">{{ analysisStore.holeResults.faceRate }} %</el-descriptions-item>
             </el-descriptions>
           </template>
@@ -93,19 +93,19 @@
            <template v-else-if="analysisStore.currentMode === 'crack'">
               <el-descriptions :column="1" size="default" border class="result-table">
               <el-descriptions-item label="裂缝总数">{{ analysisStore.crackResults.totalCount }}</el-descriptions-item>
-              <el-descriptions-item label="裂缝总长度">{{ analysisStore.crackResults.totalLength }} mm</el-descriptions-item>
-              <el-descriptions-item label="平均宽度">{{ analysisStore.crackResults.avgWidth }} mm</el-descriptions-item>
+              <el-descriptions-item label="裂缝总长度">{{ (analysisStore.crackResults.totalLength *unitScale).toFixed(4) }} {{currentUnit}}</el-descriptions-item>
+              <el-descriptions-item label="平均宽度">{{ (analysisStore.crackResults.avgWidth *unitScale).toFixed(4) }} {{currentUnit}}</el-descriptions-item>
               <el-descriptions-item label="裂缝面孔率">{{ analysisStore.crackResults.faceRate }} %</el-descriptions-item>
-              <el-descriptions-item label="线密度">{{ analysisStore.crackResults.lineDensity }} 条/m</el-descriptions-item>
-              <el-descriptions-item label="面密度">{{ analysisStore.crackResults.areaDensity }} m/m²</el-descriptions-item>
+              <el-descriptions-item label="线密度">{{ analysisStore.crackResults.lineDensity }} 条/{{imageStore.scaleType==='macro'?'m':'mm'}}</el-descriptions-item>
+              <el-descriptions-item label="面密度">{{ (analysisStore.crackResults.areaDensity).toFixed(4) }} {{currentUnit}}/{{ currentUnit }}²</el-descriptions-item>
             </el-descriptions>
            </template>
 
-           <!-- 【修复2】粒度分析结果改成el-descriptions，和其他两个模式完全统一，彻底解决排版错乱 -->
+           <!-- 粒度分析结果 -->
            <template v-else-if="analysisStore.currentMode === 'size'">
             <el-descriptions :column="1" size="default" border class="result-table">
               <el-descriptions-item label="总颗粒区域数">{{ analysisStore.sizeResults.totalParticleCount }}</el-descriptions-item>
-              <el-descriptions-item label="平均粒径">{{ analysisStore.sizeResults.avgParticleSize }} mm</el-descriptions-item>
+              <el-descriptions-item label="平均粒径">{{ (analysisStore.sizeResults.avgParticleSize *unitScale).toFixed(4) }} {{currentUnit}}</el-descriptions-item>
               <el-descriptions-item label="粗颗粒占比">{{ analysisStore.sizeResults.coarseParticleRatio }} %</el-descriptions-item>
               <el-descriptions-item label="细颗粒占比">{{ analysisStore.sizeResults.fineParticleRatio }} %</el-descriptions-item>
               <el-descriptions-item label="颗粒均匀度">{{ analysisStore.sizeResults.particleUniformity }}</el-descriptions-item>
@@ -119,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch,computed } from 'vue'
 import { DocumentAdd, Refresh } from '@element-plus/icons-vue'
 import {useAnalysisStore, type CrackResults, type HoleResults, type SizeResults} from '@/stores/analysisStore'
 import {useImageStore} from '@/stores/imageStore'
@@ -137,6 +137,18 @@ const {
   sizeThreshold, 
   analysisRegion 
 } = storeToRefs(analysisStore)
+
+
+const {processedImageDataUrl,pixelToMm}=storeToRefs(imageStore)
+// 根据标尺类型动态切换单位
+const currentUnit=computed(()=>{
+  return imageStore.scaleType==='macro'?'mm':'μm'
+})
+
+// 根据标尺类型动态切换单位缩放系数,mm转换为μm乘以1000
+const unitScale=computed(()=>{
+  return imageStore.scaleType==='macro'?1:1000
+})
 
 const activeNames = ref<string[]>(['1','2'])
 // 防抖处理，避免频繁调用
@@ -222,6 +234,7 @@ const handleStartAnalysis=async()=>{
       imageStore.processedImageDataUrl,
       threshold!,
       analysisRegion.value,
+      pixelToMm.value //传入标尺系数
     )
     if(results){
       switch(currentMode.value){

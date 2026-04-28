@@ -118,7 +118,6 @@ export const sizeSegmentation = (
   const hierarchy = new cv.Mat()
 
   try {
-    console.log('🔄 开始岩心粒度分析（实体颗粒提取）...')
 
     // 1. 预处理：转灰度图 + 基础去噪
     cv.cvtColor(roiSrc, gray, cv.COLOR_BGRA2GRAY)
@@ -132,7 +131,6 @@ export const sizeSegmentation = (
     cv.threshold(blurBase, voidMask, rockBrightnessThreshold, 255, cv.THRESH_BINARY_INV)
     // 取反得到岩石实体掩码：只在岩石实体上做粒度分析
     cv.bitwise_not(voidMask, rockMask)
-    console.log('✅ 岩石实体区域分离完成，已排除空隙裂缝')
 
     //3. 粗颗粒灵敏度：把0-100的滑块值，转换成对应的阈值
     const coarseThreshold = Math.max(2,20-(coarseSensitivity/100)*15) //灵敏度越高,阈值越低,越容易检测到粗颗粒
@@ -156,10 +154,9 @@ export const sizeSegmentation = (
 
     // 5.合并纹理，只保留岩石实体区域
     cv.add(coarseDiff, fineDiff, textureMask)
-    cv.bitwise_and(textureMask, rockMask, textureMask) // 关键：排除空隙区域
+    cv.bitwise_and(textureMask, rockMask, textureMask) //排除空隙区域
     coarseDiff.delete()
     fineDiff.delete()
-    console.log('✅ 岩石颗粒纹理提取完成')
 
     // 6. 形态学优化：去除噪点，连接颗粒轮廓
     const kernelClose = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(4, 4))
@@ -172,7 +169,6 @@ export const sizeSegmentation = (
 
     // 7. 提取颗粒轮廓
     cv.findContours(finalMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-    console.log('✅ 粒度分析完成，检测到岩石颗粒区域数：', contours.size())
 
     return { mask: finalMask,rockMask:rockMask.clone(), contours, hierarchy }
   } catch (error) {
@@ -187,7 +183,7 @@ export const sizeSegmentation = (
     if (!gray.empty()) gray.delete()
     if (!blurBase.empty()) blurBase.delete()
     if (!voidMask.empty()) voidMask.delete()
-    // 注意：rockMask不能在这里释放，要返回给上层使用
+    // rockMask不能在这里释放，要返回给上层使用
     if (!textureMask.empty()) textureMask.delete()
   }
 }
