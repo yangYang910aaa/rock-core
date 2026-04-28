@@ -65,6 +65,11 @@ export const useImageStore = defineStore('image', () => {
   const scaleType = ref<ScaleType>('macro')
   // 像素转毫米系数：1像素对应多少毫米（默认0.1，后续可以支持用户手动输入）
   const pixelToMm = ref<number>(0.1)
+  // 标尺校准状态
+  const isCalibrating = ref<boolean>(false) // 是否正在校准
+  const calibrateStartPoint=ref<{x:number,y:number}|null>(null) // 校准开始点
+  const calibrateEndPoint=ref<{x:number,y:number}|null>(null) // 校准结束点
+  const calibrateRealLength=ref<number>(10) // 校准线的真实长度,默认10mm
 
   // ==========================================
   // 3. 基础状态操作
@@ -100,6 +105,53 @@ export const useImageStore = defineStore('image', () => {
   }
   const setPixelToMm=(value:number)=>{
     pixelToMm.value=value
+  }
+  //开始/结束校准
+  const toggleCalibrate=(status:boolean)=>{
+    isCalibrating.value=status
+    calibrateStartPoint.value=null
+    calibrateEndPoint.value=null
+    if(status){
+      ElMessage.info('请在图片上点击绘制校准线起点和终点')
+    }
+  }
+  
+  //设置校准线起点
+  const setCalibrateStart=(point:{x:number,y:number})=>{
+    calibrateStartPoint.value=point
+    ElMessage.success(`已设置校准线起点,坐标为${point.x},${point.y},请点击设置终点`)
+  }
+
+  //设置校准线终点,自动计算校准系数
+  const setCalibrateEnd=(point:{x:number,y:number})=>{
+    if(!calibrateStartPoint.value){
+      ElMessage.warning('请先设置校准线起点')
+      return
+    }
+    calibrateEndPoint.value=point
+   
+    //计算校准线的像素长度
+    const dx=calibrateEndPoint.value.x-calibrateStartPoint.value.x
+    const dy=calibrateEndPoint.value.y-calibrateStartPoint.value.y
+    const pixelLength=Math.sqrt(dx*dx+dy*dy)
+    if(pixelLength<=0){
+      ElMessage.error('校准线长度不能为0')
+      return
+    }
+
+    //计算精准的像素-毫米系数:1像素=真实长度/像素长度
+    const newPixelToMm=calibrateRealLength.value/pixelLength
+    setPixelToMm(newPixelToMm)
+    ElMessage.success(`标尺校准完成! 1像素=${newPixelToMm.toFixed(6)}mm`)
+    toggleCalibrate(false) // 结束校准
+  }
+
+  //重置校准
+  const resetCalibrate=()=>{
+    calibrateStartPoint.value=null
+    calibrateEndPoint.value=null
+    setPixelToMm(0.1) // 重置校准系数为默认值0.1mm
+    ElMessage.success('已重置标尺,恢复默认值0.1mm')
   }
   /**
    * 重置图片信息（恢复原图）
@@ -203,6 +255,10 @@ export const useImageStore = defineStore('image', () => {
     // 标尺相关状态
     scaleType,
     pixelToMm,
+    isCalibrating,
+    calibrateStartPoint,
+    calibrateEndPoint,
+    calibrateRealLength,
     // 基础方法
     setImage,
     setProcessedImage,
@@ -216,6 +272,10 @@ export const useImageStore = defineStore('image', () => {
     executeProcess,
     // 标尺相关方法
     setScaleType,
-    setPixelToMm,
+    setPixelToMm,  
+    toggleCalibrate,
+    setCalibrateStart,
+    setCalibrateEnd,
+    resetCalibrate,
   }
 })

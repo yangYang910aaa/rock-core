@@ -72,8 +72,15 @@ const {
     isImageLoaded,
     isImageProcessed,
     isProcessing,
-    processedImageDataUrl
+    processedImageDataUrl,
+    isCalibrating,
+    calibrateStartPoint,
+    calibrateEndPoint,
 } = storeToRefs(imageStore);
+const  {toggleCalibrate,setCalibrateStart,setCalibrateEnd} = imageStore;
+
+//实时鼠标坐标(绘制预览线)
+const currentCalibrateMousePos=ref<{ x: number; y: number }|null>(null);
 
 // 从Store里解构目标蒙版状态
 const { targetMaskMat, analysisRegion, regionMode } = storeToRefs(analysisStore);
@@ -269,6 +276,7 @@ const drawTargetMask = () => {
         drawWidth,
         drawHeight
     );
+    drawCalibrateLine()
 };
 
 /**
@@ -281,9 +289,125 @@ const canvasToImageCoords = (canvasX: number, canvasY: number): { x: number; y: 
 };
 
 // ==========================================
+// 【追加】校准模式下的鼠标事件处理
+// ==========================================
+/**
+ * 处理校准模式的点击事件
+ */
+const handleCalibrateClick=(canvasX:number,canvasY:number)=>{
+    //非校准模式,直接返回
+    if(!isCalibrating.value){
+        return
+    }
+    //用现有的坐标准换函数
+    const imageCoords = canvasToImageCoords(canvasX, canvasY);
+
+    //没有起点,设置起点
+    if(!calibrateStartPoint.value){
+        imageStore.setCalibrateStart({x:imageCoords.x,y:imageCoords.y});
+    }
+    //有起点，设置终点,完成校准
+    else if(!calibrateEndPoint.value){
+        imageStore.setCalibrateEnd({x:imageCoords.x,y:imageCoords.y});
+    }
+}
+/**
+ * 处理校准模式的鼠标移动事件
+ */
+const handleCalibrateMouseMove=(canvasX:number,canvasY:number)=>{
+    if(!isCalibrating.value){
+        return
+    }
+    const imageCoords=canvasToImageCoords(canvasX,canvasY);
+    currentCalibrateMousePos.value={x:imageCoords.x,y:imageCoords.y};
+}
+/**
+ * 处理校准模式的鼠标离开事件
+ */
+const handleCalibrateMouseLeave=()=>{
+    currentCalibrateMousePos.value=null
+}
+// ==========================================
+// 【追加】 校准线绘制函数
+// ==========================================
+/**
+ * 绘制校准线（在最上层的 targetMaskCanvas 上绘制，不会被遮挡）
+ */
+const drawCalibrateLine=()=>{
+    if(!targetMaskCanvasRef.value||!isCalibrating.value){
+        return
+    }
+    const canvas = targetMaskCanvasRef.value
+    const ctx = canvas.getContext('2d')!
+    const { drawX, drawY, drawWidth, drawHeight } = imageDrawParams.value
+
+    // 先保存当前的绘图状态
+    ctx.save()
+
+    // 设置校准线的样式：蓝色虚线，醒目不遮挡图片
+    ctx.strokeStyle = '#409eff'
+    ctx.lineWidth = 3
+    ctx.setLineDash([10, 5])
+    ctx.fillStyle = '#409eff'
+
+    // 把图片坐标转换回Canvas坐标（适配缩放和偏移）
+    const imageToCanvas = (imgX: number, imgY: number) => {
+        return {
+        x: imgX * imageScale.value + imageOffset.value.x,
+        y: imgY * imageScale.value + imageOffset.value.y
+        }
+      }
+        // 1. 绘制起点
+      if (calibrateStartPoint.value) {
+        const startCanvas = imageToCanvas(calibrateStartPoint.value.x, calibrateStartPoint.value.y)
+        
+        // 画起点的实心圆
+        ctx.beginPath()
+        ctx.arc(startCanvas.x, startCanvas.y, 6, 0, Math.PI * 2)
+        ctx.fill()
+
+        // 2. 绘制「起点到当前鼠标」的实时预览线
+        if (currentCalibrateMousePos.value && !calibrateEndPoint.value) {
+        const mouseCanvas = imageToCanvas(currentCalibrateMousePos.value.x, currentCalibrateMousePos.value.y)
+        ctx.beginPath()
+        ctx.moveTo(startCanvas.x, startCanvas.y)
+        ctx.lineTo(mouseCanvas.x, mouseCanvas.y)
+        ctx.stroke()
+        }
+    }
+
+        // 3. 绘制完整的校准线和终点
+       if (calibrateStartPoint.value && calibrateEndPoint.value) {
+        const startCanvas = imageToCanvas(calibrateStartPoint.value.x, calibrateStartPoint.value.y)
+        const endCanvas = imageToCanvas(calibrateEndPoint.value.x, calibrateEndPoint.value.y)
+
+        // 画校准线
+        ctx.beginPath()
+        ctx.moveTo(startCanvas.x, startCanvas.y)
+        ctx.lineTo(endCanvas.x, endCanvas.y)
+        ctx.stroke()
+
+        // 画终点的实心圆
+        ctx.beginPath()
+        ctx.arc(endCanvas.x, endCanvas.y, 6, 0, Math.PI * 2)
+        ctx.fill()
+    }
+
+    // 恢复之前的绘图状态
+    ctx.restore()
+}
+// ==========================================
 // 5. 鼠标事件处理
 // ==========================================
 const handleMouseDown = (e: MouseEvent) => {
+      // 校准模式下，优先处理校准点击，禁用局部选框
+    if (isCalibrating.value) {
+        const rect = imageCanvasRef.value!.getBoundingClientRect()
+        const canvasX = e.clientX - rect.left
+        const canvasY = e.clientY - rect.top
+        handleCalibrateClick(canvasX, canvasY)
+        return // 直接返回，不执行后续的局部选框逻辑
+    }
     if (regionMode.value !== 'rect' || !isImageLoaded.value) return;
     isDragging.value = true;
     analysisStore.isSelectingRegion = true;
@@ -298,6 +422,15 @@ const handleMouseDown = (e: MouseEvent) => {
 };
 
 const handleMouseMove = (e: MouseEvent) => {
+      // 校准模式下，处理鼠标移动
+    if (isCalibrating.value) {
+        const rect = imageCanvasRef.value!.getBoundingClientRect()
+        const canvasX = e.clientX - rect.left
+        const canvasY = e.clientY - rect.top
+        handleCalibrateMouseMove(canvasX, canvasY)
+        drawCalibrateLine() // 实时重绘校准线
+        return
+    }
     if (!isDragging.value) return;
 
     const rect = imageCanvasRef.value!.getBoundingClientRect();
@@ -315,6 +448,12 @@ const handleMouseMove = (e: MouseEvent) => {
 };
 
 const handleMouseUp = () => {
+     // 校准模式下，清空预览坐标
+    if (isCalibrating.value) {
+        handleCalibrateMouseLeave()
+        drawCalibrateLine()
+        return
+    }
     if (!isDragging.value) return;
     isDragging.value = false;
     analysisStore.isSelectingRegion = false;
@@ -365,6 +504,10 @@ watch(scale, () => {
     drawTargetMask();
 });
 
+//监听校准状态变化，重绘校准线
+watch([isCalibrating, calibrateStartPoint, calibrateEndPoint], () => {
+  drawTargetMask() // 重绘时会自动调用 drawCalibrateLine
+})
 // ==========================================
 // 7. 生命周期
 // ==========================================

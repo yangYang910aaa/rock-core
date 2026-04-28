@@ -9,6 +9,28 @@
             <el-radio-button label="macro">宏观(mm)</el-radio-button>
             <el-radio-button label="micro">微观(μm)</el-radio-button>
           </el-radio-group>
+
+          <!-- 标尺校准区域 -->
+           <div class="calibrate-area">
+              <div class="group-title">标尺校准</div>
+              <el-form label-width="80px"  class="calibrate-form">
+                <el-form-item label="真实长度">
+                  <el-input-number v-model="imageStore.calibrateRealLength" :min="0.1" :step="0.1" style="width: 100%;"></el-input-number>
+                  <span class="unit-tip">{{ imageStore.scaleType === 'macro' ? 'mm' : 'μm' }}</span>
+                </el-form-item>
+              </el-form>
+              <div class="calibrate-btns">
+                <el-button 
+                :type="imageStore.isCalibrating ? 'danger' : 'primary'"
+                class="sidebar-btn small-btn"
+                @click="imageStore.toggleCalibrate(!imageStore.isCalibrating)"
+                >
+                  {{ imageStore.isCalibrating ? '取消校准' : '开始校准' }}
+                </el-button>
+                <el-button class="sidebar-btn small-btn" @click="imageStore.resetCalibrate">重置默认</el-button>
+              </div>
+              <p class="calibrate-tip">点击「开始校准」,在图片上依次点击校准线的起点和终点</p>
+           </div>
         </el-collapse-item>
 
         <!-- 图像预处理面板：补充文档要求的缺失功能 -->
@@ -401,5 +423,30 @@ watch(scaleType,(newType)=>{
   color: #909399;
   margin: 0;
   padding-left: 2px;
+}
+/* 标尺校准样式 */
+.calibrate-area {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #ebeef5;
+}
+.calibrate-form {
+  margin-bottom: 12px;
+}
+.unit-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 4px;
+}
+.calibrate-btns {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.calibrate-tip {
+  font-size: 12px;
+  color: #909399;
+  margin: 0;
+  padding-left: 4px;
 }
 </style>
