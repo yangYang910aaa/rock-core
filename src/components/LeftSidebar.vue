@@ -80,11 +80,11 @@
         <!-- 分组2：二次编辑 -->
           <div class="operate-group">
             <div class="group-title">二次编辑</div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">区域去噪</el-button></div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">孔洞填充</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handleDenoise">区域去噪</el-button></div>
+            <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handleFillHoles">孔洞填充</el-button></div>
             <div class="btn-group-row">
-              <el-button class="sidebar-btn small-btn">区域膨胀</el-button>
-              <el-button class="sidebar-btn small-btn">区域腐蚀</el-button>
+              <el-button class="sidebar-btn small-btn" @click="handleDilate">区域膨胀</el-button>
+              <el-button class="sidebar-btn small-btn" @click="handleErode">区域腐蚀</el-button>
             </div>
           </div>
         </div>
@@ -150,6 +150,7 @@ import {useImageStore,type PreprocessType} from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { denoiseRegion,fillHoles,dilateRegion,erodeRegion,inverseMask } from '@/utils/opencv/morphology'
+import cv from '@techstark/opencv-js'
 
 const analysisStore=useAnalysisStore()
 const imageStore=useImageStore()
@@ -265,6 +266,43 @@ const handleResetInitial=()=>{
   if(!checkMaskExists()) return
   resetMaskToInitial()
 }
+// ==========================================
+// 二次编辑功能实现
+// ==========================================
+// 操作参数（可后续扩展为滑块调节，先给行业通用默认值）
+const DEFAULT_KERNEL_SIZE = 3 // 膨胀/腐蚀/去噪的默认核大小
+const FILL_KERNEL_SIZE = 5 // 孔洞填充的默认核大小
+
+/**
+ * 【通用函数】执行蒙版操作
+ * @param operationName 操作名称（用于提示）
+ * @param operationFn 具体的形态学操作函数
+ * @param kernelSize 可选的核大小
+ */
+const executeMaskOperation=(
+  operationName:string,
+  operationFn:(src:cv.Mat,kernelSize?:number)=>cv.Mat,
+  kernelSize:number=DEFAULT_KERNEL_SIZE)=>{
+    if(!targetMaskMat.value || targetMaskMat.value.empty()){
+      ElMessage.warning(`请先进行分析,生成蒙版后再进行${operationName}`)
+      return
+    }
+    // 执行操作
+    const newMask=operationFn(targetMaskMat.value,kernelSize)
+    // 更新蒙版并保存历史
+    updateMask(newMask)
+    //统一提示
+    ElMessage.success(`${operationName}完成`)
+  }
+
+// 区域去噪
+const handleDenoise=()=>executeMaskOperation('区域去噪',denoiseRegion)
+// 孔洞填充
+const handleFillHoles=()=>executeMaskOperation('孔洞填充',fillHoles,FILL_KERNEL_SIZE)
+// 区域膨胀
+const handleDilate=()=>executeMaskOperation('区域膨胀',dilateRegion)
+// 区域腐蚀
+const handleErode=()=>executeMaskOperation('区域腐蚀',erodeRegion)
 </script>
 
 <style scoped>
