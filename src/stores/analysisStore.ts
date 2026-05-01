@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import {ref,shallowRef, markRaw} from 'vue' // 【关键】导入markRaw
+import {ref,shallowRef, markRaw} from 'vue' 
 import cv from '@techstark/opencv-js'
 import { ElMessage } from 'element-plus'
 
@@ -241,14 +241,14 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     }
 
     // ==========================================
-    // 蒙版操作历史（用于撤销/还原）
+    // 6. 蒙版操作历史（用于撤销/还原）
     // ==========================================
     const maskHistory = ref<cv.Mat[]>([]) // 蒙版历史栈
     const historyIndex = ref<number>(-1) // 当前历史索引
     const MAX_HISTORY_LENGTH = 20 // 最大历史记录数，避免内存占用过大
 
     // ==========================================
-    // 蒙版历史与内存管理辅助函数（核心修复：非响应式+安全操作）
+    // 6.1蒙版历史与内存管理辅助函数
     // ==========================================
     /** 复制一个 Mat，返回新实例，标记为非响应式 */
     const copyMat = (m: cv.Mat): cv.Mat => {
@@ -335,7 +335,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     }
 
     // ==========================================
-    // 蒙版操作相关方法
+    // 6.2 蒙版操作相关方法
     // ==========================================
 
     /**
