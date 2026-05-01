@@ -71,9 +71,9 @@
             <div class="group-title">提取操作</div>
             <div class="btn-wrapper"><el-button class="sidebar-btn">区域分割</el-button></div>
             <div class="btn-group-row">
-              <el-button class="sidebar-btn small-btn">反选</el-button>
-              <el-button class="sidebar-btn small-btn">撤销</el-button>
-              <el-button class="sidebar-btn small-btn">还原</el-button>
+              <el-button class="sidebar-btn small-btn" @click="handleInverseMask">反选</el-button>
+              <el-button class="sidebar-btn small-btn" @click="handleUndo">撤销</el-button>
+              <el-button class="sidebar-btn small-btn" @click="handleRedo">还原</el-button>
             </div>
           </div>
 
@@ -149,14 +149,16 @@ import { useAnalysisStore, type AnalysisMode,type RegionMode } from '@/stores/an
 import {useImageStore,type PreprocessType} from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
+import { denoiseRegion,fillHoles,dilateRegion,erodeRegion,inverseMask } from '@/utils/opencv/morphology'
 
 const analysisStore=useAnalysisStore()
 const imageStore=useImageStore()
 
 //解构Store状态
-const {currentMode:analysisMode,regionMode}=storeToRefs(analysisStore)
+const {currentMode:analysisMode,regionMode,targetMaskMat}=storeToRefs(analysisStore)
 const {isImageLoaded,scaleType:storeScaleType}=storeToRefs(imageStore)
 const {setScaleType}=imageStore
+const {saveMaskToHistory,undoMask,redoMask,updateMask,resetMaskToInitial}=analysisStore
 //原有状态
 const activeNames = ref<string[]>(['1']) // 标尺设置面板默认展开
 const scaleType = ref<'macro' | 'micro'>('macro') // 标尺类型，默认宏观
@@ -221,6 +223,48 @@ scaleType.value=storeScaleType.value
 watch(scaleType,(newType)=>{
   setScaleType(newType)
 })
+// ==========================================
+// 提取操作和二次编辑的事件处理
+// ==========================================
+
+/**
+ * 检查是否有蒙版
+ */
+const checkMaskExists=():boolean=>{
+  if(!targetMaskMat.value || targetMaskMat.value.empty()){
+    ElMessage.warning('请先进行分析,生成蒙版后再进行操作')
+    return false
+  }
+  return true
+}
+// 反选
+const handleInverseMask=()=>{
+  if(!checkMaskExists()) return
+  const newMask=inverseMask(targetMaskMat.value!)
+  updateMask(newMask)
+  ElMessage.success('已反选')
+}
+
+/**
+ * 撤销
+ */
+const handleUndo=()=>{
+  undoMask()
+}
+/**
+ * 还原
+ */
+const handleRedo=()=>{
+  redoMask()
+}
+
+/**
+ * 重置到初始状态
+ */
+const handleResetInitial=()=>{
+  if(!checkMaskExists()) return
+  resetMaskToInitial()
+}
 </script>
 
 <style scoped>

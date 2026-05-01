@@ -1,7 +1,8 @@
 // 本函数用来 封装分析模式业务逻辑
 import cv from '@techstark/opencv-js'
 import { ElMessage } from 'element-plus'
-import type { Ref } from 'vue'
+import {markRaw,type Ref} from 'vue'
+import {useAnalysisStore} from '@/stores/analysisStore'
 //类型和函数分开导入
 import type {
   AnalysisMode,
@@ -65,13 +66,15 @@ export const previewAnalysisMask = async (
 
     // 正确修改Ref的.value属性！
     const oldMask = targetMaskMat.value // 先拿到旧的Mat值
-    targetMaskMat.value = visualMask // 正确修改Ref的value，更新Store里的值
+    targetMaskMat.value = markRaw(visualMask) // 正确修改Ref的value，更新Store里的值
     
     // 安全释放旧蒙版内存
     if (oldMask !== null && !oldMask.empty()) {
       oldMask.delete()
     }
-
+    // 4. 初始化蒙版历史记录
+    const analysisStore = useAnalysisStore()
+    analysisStore.initMaskHistory() // 传入当前预览的蒙版作为初始状态
     // 5. 释放临时内存
     src.delete()
     if (binaryMask !== null && !binaryMask.empty()) {

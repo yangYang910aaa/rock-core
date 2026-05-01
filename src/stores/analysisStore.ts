@@ -1,6 +1,8 @@
 import {defineStore} from 'pinia'
-import {ref,shallowRef} from 'vue'
+import {ref,shallowRef, markRaw} from 'vue' // 【关键】导入markRaw
 import cv from '@techstark/opencv-js'
+import { ElMessage } from 'element-plus'
+
 // ==========================================
 // 1. 类型定义
 // ==========================================
@@ -21,7 +23,6 @@ export interface AnalysisRegion{
 
 // 孔洞分析阈值
 export interface HoleThreshold{
-    // colorMatch:number//颜色匹配度(0-100)
     minThreshold:number//最小阈值(0-255)
     maxThreshold:number//最大阈值(0-255)
 }
@@ -88,6 +89,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const regionMode=ref<RegionMode>('full')//区域选择模式,默认全图
     const isSelectingRegion=ref<boolean>(false)//是否正在选择区域
     const isAnalyzing=ref<boolean>(false)//是否正在分析图像
+
    // ==========================================
    // 4.2 分析区域状态
    // ==========================================
@@ -97,13 +99,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         width:0,
         height:0,
     })
-    //目标区域掩码矩阵
+    // 【关键】目标区域掩码矩阵，shallowRef不会递归代理内部属性，配合markRaw使用
     const targetMaskMat = shallowRef<cv.Mat | null>(null)
    // ==========================================
    // 4.3 阈值状态
    // ==========================================
     const holeThreshold=ref<HoleThreshold>({
-        // colorMatch:50,
         minThreshold:0,
         maxThreshold:128,
     })
@@ -111,8 +112,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         minWidth:0.1,
         maxWidth:5.0,
         minLength:10,
-        cannyLow:50,//默认Canny低检测阈值
-        cannyHigh:150,//默认Canny高检测阈值
+        cannyLow:50,
+        cannyHigh:150,
     })
     const sizeThreshold=ref<SizeThreshold>({
         rockBrightnessThreshold:80,
@@ -146,6 +147,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         particleUniformity:0,
         rockParticleRate:0,
     })
+
     // ==========================================
     // 5. 基础操作
     // ==========================================
@@ -207,7 +209,6 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     //重置所有阈值
     const resetThresholds=()=>{
         holeThreshold.value={
-            // colorMatch:50,
             minThreshold:0,
             maxThreshold:128,
         }
@@ -233,23 +234,225 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         resetAnalysisRegion()
         resetResults()
         resetThresholds()
-           // 重置蒙版时释放内存
-        if (targetMaskMat.value) {
-            targetMaskMat.value.delete()
-            targetMaskMat.value = null
-        }
+        deleteMatSafe(targetMaskMat.value)
+        targetMaskMat.value = null
+        // 重置时清空历史
+        disposeMasks()
     }
-        // 清空蒙版
-        const clearTargetMask = () => {
-            if (targetMaskMat.value) {
-                targetMaskMat.value.delete()
-                targetMaskMat.value = null
-            }
-        }
-
 
     // ==========================================
-    // 6. 暴露给组件的状态和方法
+    // 蒙版操作历史（用于撤销/还原）
+    // ==========================================
+    const maskHistory = ref<cv.Mat[]>([]) // 蒙版历史栈
+    const historyIndex = ref<number>(-1) // 当前历史索引
+    const MAX_HISTORY_LENGTH = 20 // 最大历史记录数，避免内存占用过大
+
+    // ==========================================
+    // 蒙版历史与内存管理辅助函数（核心修复：非响应式+安全操作）
+    // ==========================================
+    /** 复制一个 Mat，返回新实例，标记为非响应式 */
+    const copyMat = (m: cv.Mat): cv.Mat => {
+      const out = new cv.Mat()
+      m.copyTo(out)
+      return markRaw(out) // 【关键】告诉Vue不要代理这个Mat对象
+    }
+
+    /** 安全删除 Mat（容错处理，避免代理对象报错） */
+    const deleteMatSafe = (m?: cv.Mat | null) => {
+      try {
+        // 先判断是否有delete方法，再判断是否非空
+        if (m && typeof m.delete === 'function' && !m.empty()) {
+          m.delete()
+        }
+      } catch (e) {
+        console.warn('Mat释放失败，已跳过:', e)
+      }
+    }
+
+    /** 保证 historyIndex 在合法范围内 */
+    const clampHistoryIndex = () => {
+      historyIndex.value = Math.min(Math.max(historyIndex.value, -1), maskHistory.value.length - 1)
+    }
+
+    /** 丢弃当前索引之后的历史并释放对应 Mat 内存 */
+    const discardFutureHistory = () => {
+      const from = historyIndex.value + 1
+      if (from < maskHistory.value.length) {
+        const removed = maskHistory.value.splice(from)
+        removed.forEach(m => deleteMatSafe(m))
+      }
+    }
+
+    /** 把新的蒙版推入历史记录 */
+    const pushHistory = (newMask: cv.Mat) => {
+      if(!newMask || newMask.empty()) return
+      
+      // 先删除当前索引之后的历史
+      discardFutureHistory()
+      
+      // 复制新蒙版，推入历史栈（已经是markRaw非响应式）
+      const copy = copyMat(newMask)
+      maskHistory.value.push(copy)
+      historyIndex.value = maskHistory.value.length - 1
+
+      // 控制最大历史长度
+      if(maskHistory.value.length > MAX_HISTORY_LENGTH) {
+        const oldest = maskHistory.value.shift()
+        deleteMatSafe(oldest)
+        historyIndex.value = Math.max(historyIndex.value - 1, 0)
+      }
+    }
+
+    /** 安全替换当前 targetMaskMat（替换时释放旧 Mat） */
+    const safeReplaceTarget = (newMat: cv.Mat) => {
+      const old = targetMaskMat.value
+      targetMaskMat.value = markRaw(newMat) // 【关键】标记为非响应式
+      deleteMatSafe(old)
+    }
+
+    // 清空蒙版
+    const clearTargetMask = () => {
+        deleteMatSafe(targetMaskMat.value)
+        targetMaskMat.value = null
+    }
+
+    /**
+     * 释放所有蒙版资源并清空历史
+     */
+    const disposeMasks = () => {
+        // 释放当前目标蒙版
+        deleteMatSafe(targetMaskMat.value)
+        targetMaskMat.value = null
+
+        // 释放并清空历史中的所有 Mat
+        if (maskHistory.value && maskHistory.value.length > 0) {
+            maskHistory.value.forEach(m => deleteMatSafe(m))
+            maskHistory.value.length = 0
+        }
+
+        // 重置历史索引
+        historyIndex.value = -1
+    }
+
+    // ==========================================
+    // 蒙版操作相关方法
+    // ==========================================
+
+    /**
+     * 保存当前蒙版到历史记录
+     */
+    const saveMaskToHistory = () => {
+      if (!targetMaskMat.value || targetMaskMat.value.empty()) return
+
+      clampHistoryIndex()
+      discardFutureHistory()
+      pushHistory(targetMaskMat.value)
+    }
+
+    /**
+     * 分析完成后，初始化历史记录
+     */
+    const initMaskHistory = () => {
+        if(!targetMaskMat.value || targetMaskMat.value.empty()) return
+
+        // 只清空历史栈，不释放当前targetMaskMat
+        if (maskHistory.value && maskHistory.value.length > 0) {
+            maskHistory.value.forEach(m => deleteMatSafe(m))
+            maskHistory.value.length = 0
+        }
+        historyIndex.value = -1
+
+        // 把初始蒙版推入历史
+        pushHistory(targetMaskMat.value)
+    }
+
+    /**
+     * 撤销
+     */
+    const undoMask = () => {
+      if (historyIndex.value <= 0) {
+        ElMessage.warning('没有可撤销的操作')
+        return
+      }
+      
+      historyIndex.value--
+      const historyMask = maskHistory.value[historyIndex.value]
+      if (!historyMask) {
+        ElMessage.warning('历史记录无效')
+        return
+      }
+
+      // 复制历史项并替换当前蒙版
+      const copied = copyMat(historyMask)
+      safeReplaceTarget(copied)
+      ElMessage.success('已撤销')
+    }
+
+    /**
+     * 重做（还原撤销操作）
+     */
+    const redoMask = () => {
+      if (historyIndex.value >= maskHistory.value.length - 1) {
+        ElMessage.warning('没有可还原的操作')
+        return
+      }
+
+      historyIndex.value++
+      const historyMask = maskHistory.value[historyIndex.value]
+      if (!historyMask) {
+        ElMessage.warning('历史记录无效')
+        return
+      }
+
+      // 复制历史项并替换当前蒙版
+      const copied = copyMat(historyMask)
+      safeReplaceTarget(copied)
+      ElMessage.success('已还原')
+    }
+
+    /**
+     * 【核心】更新蒙版（所有二次编辑操作的通用入口）
+     * @param newMask 新的蒙版
+     * @param saveHistory 是否保存历史，默认true
+     */
+    const updateMask = (newMask: cv.Mat, saveHistory: boolean = true) => {
+      if (!newMask || newMask.empty()) {
+        ElMessage.warning('无效的蒙版输入')
+        return
+      }
+
+      // 先替换蒙版
+      const copied = copyMat(newMask)
+      safeReplaceTarget(copied)
+
+      // 再把新蒙版保存到历史记录
+      if (saveHistory) {
+        pushHistory(targetMaskMat.value!)
+      }
+    }
+
+    /**
+     * 重置蒙版到初始状态
+     */
+    const resetMaskToInitial = () => {
+      if (!maskHistory.value || maskHistory.value.length === 0) {
+        ElMessage.warning('没有历史蒙版可重置')
+        return
+      }
+      const initial = maskHistory.value[0]
+      if (!initial || initial.empty()) {
+        ElMessage.warning('初始蒙版无效')
+        return
+      }
+
+      const copied = copyMat(initial)
+      safeReplaceTarget(copied)
+      historyIndex.value = 0
+      ElMessage.success('已重置到初始状态')
+    }
+
+    // ==========================================
+    // 7. 暴露给组件的状态和方法
     // ==========================================
   return {
     // 基础状态
@@ -277,5 +480,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     resetThresholds,
     resetAll,
     clearTargetMask,
+    saveMaskToHistory,
+    undoMask,
+    redoMask,
+    updateMask,
+    resetMaskToInitial,
+    disposeMasks,
+    initMaskHistory
   }
 })
