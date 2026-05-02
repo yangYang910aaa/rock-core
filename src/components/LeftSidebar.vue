@@ -156,7 +156,7 @@ const analysisStore=useAnalysisStore()
 const imageStore=useImageStore()
 
 //解构Store状态
-const {currentMode:analysisMode,regionMode,targetMaskMat}=storeToRefs(analysisStore)
+const {currentMode:analysisMode,regionMode,binaryMaskMat}=storeToRefs(analysisStore)
 const {isImageLoaded,scaleType:storeScaleType}=storeToRefs(imageStore)
 const {setScaleType}=imageStore
 const {saveMaskToHistory,undoMask,redoMask,updateMask,resetMaskToInitial}=analysisStore
@@ -232,7 +232,7 @@ watch(scaleType,(newType)=>{
  * 检查是否有蒙版
  */
 const checkMaskExists=():boolean=>{
-  if(!targetMaskMat.value || targetMaskMat.value.empty()){
+  if(!binaryMaskMat.value|| binaryMaskMat.value.empty()|| binaryMaskMat.value.channels()!==1){
     ElMessage.warning('请先进行分析,生成蒙版后再进行操作')
     return false
   }
@@ -241,8 +241,8 @@ const checkMaskExists=():boolean=>{
 // 反选
 const handleInverseMask=()=>{
   if(!checkMaskExists()) return
-  const newMask=inverseMask(targetMaskMat.value!)
-  updateMask(newMask)
+  const newBinaryMask=inverseMask(binaryMaskMat.value!)
+  updateMask(newBinaryMask)
   ElMessage.success('已反选')
 }
 
@@ -283,20 +283,23 @@ const executeMaskOperation=(
   operationName:string,
   operationFn:(src:cv.Mat,kernelSize?:number)=>cv.Mat,
   kernelSize:number=DEFAULT_KERNEL_SIZE)=>{
-    if(!targetMaskMat.value || targetMaskMat.value.empty()){
-      ElMessage.warning(`请先进行分析,生成蒙版后再进行${operationName}`)
-      return
+     if (!checkMaskExists()) return
+    try {
+      if (!binaryMaskMat.value) {
+        return
+      }
+      // 执行操作
+      const newBinaryMask = operationFn(binaryMaskMat.value, kernelSize)
+      // 更新蒙版并保存历史
+      updateMask(newBinaryMask) 
+       ElMessage.success(`${operationName}完成`)
+    } catch (error) {
+      ElMessage.error(`${operationName}失败，请重试`)
     }
-    // 执行操作
-    const newMask=operationFn(targetMaskMat.value,kernelSize)
-    // 更新蒙版并保存历史
-    updateMask(newMask)
-    //统一提示
-    ElMessage.success(`${operationName}完成`)
   }
 
 // 区域去噪
-const handleDenoise=()=>executeMaskOperation('区域去噪',denoiseRegion)
+const handleDenoise=()=>executeMaskOperation('区域去噪',(src)=>denoiseRegion(src,DEFAULT_KERNEL_SIZE,2))
 // 孔洞填充
 const handleFillHoles=()=>executeMaskOperation('孔洞填充',fillHoles,FILL_KERNEL_SIZE)
 // 区域膨胀

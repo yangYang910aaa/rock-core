@@ -95,7 +95,7 @@ export const cropAnalysisRegion=(src:cv.Mat,region:AnalysisRegion):cv.Mat=>{
 export const maskToVisual=(
     binaryMask:cv.Mat,
     srcSize:{width:number,height:number},
-    region:AnalysisRegion,
+    region:AnalysisRegion={x:0,y:0,width:0,height:0},
     color:{r:number,g:number,b:number,a:number}={r:255,g:0,b:0,a:128}
 ):cv.Mat=>{
   //创建可视化蒙版
@@ -129,4 +129,25 @@ export const maskToVisual=(
         channels.delete()
     }
     return visualMask
+}
+// ==========================================
+// Mat 生命周期管理工具
+// ==========================================
+import { markRaw } from 'vue'
+
+/** 复制一个 Mat，返回非响应式新实例（调用方负责管理生命周期） */
+export const copyMat = (m: cv.Mat): cv.Mat => {
+  const out = new cv.Mat()
+  m.copyTo(out)
+  return markRaw(out)
+}
+
+/** 安全删除 Mat，避免访问已释放的C++指针 */
+export const deleteMatSafe = (m?: cv.Mat | null) => {
+  if (!m) return
+  try {
+    m.delete()
+  } catch {
+    // 已释放则忽略
+  }
 }
