@@ -74,6 +74,11 @@
               <el-button class="sidebar-btn small-btn" @click="handleUndo">撤销</el-button>
               <el-button class="sidebar-btn small-btn" @click="handleRedo">还原撤销</el-button>
             </div>
+            <div class="btn-wrapper" style="margin-top: 10px;">
+              <el-button class="sidebar-btn" type="success" @click="handleResetInitial">
+                重置到初始状态
+              </el-button>
+            </div>
           </div>
 
         <!-- 分组2：二次编辑 -->
@@ -87,10 +92,6 @@
             </div>
           </div>
         </div>
-
-          <div class="btn-wrapper">
-            <el-button type="success" class="sidebar-btn start-btn" size="default">开始提取</el-button>
-          </div>
         </el-collapse-item>
       </el-collapse>
     </div>
