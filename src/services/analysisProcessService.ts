@@ -43,41 +43,59 @@ export const previewAnalysisMask = async (
   try {
     // 1. 加载原图
     const { src, width, height } = await loadImageToMat(imageDataUrl)
-    let binaryMask: cv.Mat | null = null
+    const analysisStore = useAnalysisStore()
+    // 保存原图全图尺寸到Store，后续所有操作都用这个尺寸
+    analysisStore.sourceImageSize = { width, height }
+
+    let roiBinaryMask: cv.Mat | null = null
     let tempContours: cv.MatVector | null = null
     let tempHierarchy: cv.Mat | null = null
 
     // 2. 根据分析模式执行分割
     switch (mode) {
       case 'hole':
-        binaryMask = holeSegmentation(src, threshold as HoleThreshold, region)
+        roiBinaryMask = holeSegmentation(src, threshold as HoleThreshold, region)
         break
       case 'crack':
-        binaryMask = crackSegmentation(src, threshold as CrackThreshold, region)
+        roiBinaryMask = crackSegmentation(src, threshold as CrackThreshold, region)
         break
       case 'size':
         const { mask: sizeMask, rockMask, contours, hierarchy } = sizeSegmentation(src, threshold as SizeThreshold, region)
-        binaryMask = sizeMask
+        roiBinaryMask = sizeMask
         tempContours = contours
         tempHierarchy = hierarchy
         break
       default:
         throw new Error('未支持的分析模式')
     }
+     // 创建全图尺寸的二值蒙版，把ROI分割结果贴到全图对应位置
+    const fullBinaryMask = new cv.Mat(height, width, cv.CV_8UC1, new cv.Scalar(0))
+    if (region.width > 0 && region.height > 0) {
+      // 局部模式：把ROI分割结果贴到全图的对应位置
+      const rect = new cv.Rect(
+        Math.max(0, region.x),
+        Math.max(0, region.y),
+        Math.min(width - region.x, region.width),
+        Math.min(height - region.y, region.height)
+      )
+      const fullRoi = fullBinaryMask.roi(rect)
+      roiBinaryMask.copyTo(fullRoi)
+      fullRoi.delete()
+    } else {
+      // 全图模式：直接复制分割结果
+      roiBinaryMask.copyTo(fullBinaryMask)
+    }
 
     // 3. 生成可视化红色蒙版
-    const visualMask = maskToVisual(binaryMask, { width, height }, region)
-
-    // 【核心修复】正确赋值双蒙版
-    const analysisStore = useAnalysisStore()
+    const visualMask = maskToVisual(roiBinaryMask, { width, height }, region)
 
     // 先拿到旧的蒙版
-    const oldVisualMask = targetMaskMat.value // 【修复】这里应该是 targetMaskMat，不是 binaryMaskMat
+    const oldVisualMask = targetMaskMat.value 
     const oldBinaryMask = analysisStore.binaryMaskMat
 
-    // 【修复】复制新蒙版，避免和临时变量共享引用
+    // 复制新蒙版，避免和临时变量共享引用
     const newVisualMask = markRaw(visualMask)
-    const newBinaryMask = markRaw(copyMat(binaryMask)) // 必须复制！
+    const newBinaryMask = markRaw(copyMat(fullBinaryMask)) // 全图尺寸的二值蒙版
 
     // 安全替换 Store 里的蒙版
     targetMaskMat.value = newVisualMask
@@ -92,9 +110,12 @@ export const previewAnalysisMask = async (
 
     // 5. 释放临时内存
     src.delete()
-    // 【修复】只释放函数内的临时 binaryMask，Store 里的已经复制了一份，不受影响
-    if (binaryMask !== null) {
-      deleteMatSafe(binaryMask)
+    // 只释放函数内的临时 roiBinaryMask，Store 里的已经复制了一份，不受影响
+    if (roiBinaryMask !== null) {
+      deleteMatSafe(roiBinaryMask)
+    }
+    if (fullBinaryMask !== null) {
+      deleteMatSafe(fullBinaryMask)
     }
     if (tempContours !== null) {
       tempContours.delete()

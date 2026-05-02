@@ -89,6 +89,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const targetMaskMat = shallowRef<cv.Mat | null>(null)
     // 单通道二值蒙版（仅用于计算，所有形态学操作都基于它）
     const binaryMaskMat = shallowRef<cv.Mat | null>(null)
+    // 原图全图尺寸（用于生成全图大小的蒙版，确保坐标匹配）
+    const sourceImageSize = ref<{ width: number, height: number }>({ width: 0, height: 0 })
 
    // ==========================================
    // 4.3 阈值状态
@@ -195,7 +197,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
       binaryMaskMat.value = markRaw(newBinaryMat)
       deleteMatSafe(oldBinary)
     }
-    
+
     /// 清空当前双蒙版
     const clearTargetMask = () => {
         deleteMatSafe(targetMaskMat.value)
@@ -258,11 +260,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         return
       }
 
-      // 从历史二值蒙版生成可视化蒙版
+       // 用全图尺寸生成可视化蒙版
       const newBinaryMask = copyMat(historyBinaryMask)
+      const { width, height } = sourceImageSize.value
       const newVisualMask = maskToVisual(newBinaryMask, {
-        width: newBinaryMask.cols,
-        height: newBinaryMask.rows
+        width,
+        height
       })
 
       // 安全替换双蒙版
@@ -286,11 +289,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         return
       }
 
-      // 从历史二值蒙版生成可视化蒙版
+       // 用全图尺寸生成可视化蒙版
       const newBinaryMask = copyMat(historyBinaryMask)
+      const { width, height } = sourceImageSize.value
       const newVisualMask = maskToVisual(newBinaryMask, {
-        width: newBinaryMask.cols,
-        height: newBinaryMask.rows
+        width,
+        height
       })
 
       // 第二个参数必须是二值蒙版
@@ -309,11 +313,17 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         ElMessage.warning('无效的蒙版输入')
         return
       }
-
+       // 【核心修复】用原图全图尺寸生成可视化蒙版，而不是binaryMask的尺寸
+      const { width, height } = sourceImageSize.value
+        if (width === 0 || height === 0) {
+          ElMessage.warning('原图尺寸无效')
+          deleteMatSafe(newBinaryMask)
+          return
+        }
       // 从新的二值蒙版生成可视化蒙版
       const newVisualMask = maskToVisual(newBinaryMask, {
-        width: newBinaryMask.cols,
-        height: newBinaryMask.rows
+        width,
+        height
       })
 
       // 安全替换双蒙版
@@ -338,11 +348,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         ElMessage.warning('初始蒙版无效')
         return
       }
-
+      // 用全图尺寸生成可视化蒙版
       const newBinaryMask = copyMat(initialBinaryMask)
+       const { width, height } = sourceImageSize.value
       const newVisualMask = maskToVisual(newBinaryMask, {
-        width: newBinaryMask.cols,
-        height: newBinaryMask.rows
+        width,
+        height
       })
 
       safeReplaceTarget(newVisualMask, newBinaryMask)
@@ -363,6 +374,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     analysisRegion,
     targetMaskMat,
     binaryMaskMat, // 导出二值蒙版
+    sourceImageSize, // 原图全图尺寸
     // 阈值
     holeThreshold,
     crackThreshold,
@@ -370,7 +382,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     // 结果
     holeResults,
     crackResults,
-    sizeResults,
+    sizeResults,  
     // 方法
     setMode,
     setRegionMode,

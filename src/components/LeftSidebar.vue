@@ -69,11 +69,10 @@
           <!-- 分组1：提取操作 -->
           <div class="operate-group">
             <div class="group-title">提取操作</div>
-            <div class="btn-wrapper"><el-button class="sidebar-btn">区域分割</el-button></div>
             <div class="btn-group-row">
               <el-button class="sidebar-btn small-btn" @click="handleInverseMask">反选</el-button>
               <el-button class="sidebar-btn small-btn" @click="handleUndo">撤销</el-button>
-              <el-button class="sidebar-btn small-btn" @click="handleRedo">还原</el-button>
+              <el-button class="sidebar-btn small-btn" @click="handleRedo">还原撤销</el-button>
             </div>
           </div>
 
@@ -145,7 +144,7 @@
 
 <script setup lang="ts">
 import { ref,watch } from 'vue'
-import { useAnalysisStore, type AnalysisMode,type RegionMode } from '@/stores/analysisStore'
+import { useAnalysisStore, type AnalysisMode,type AnalysisRegion,type RegionMode } from '@/stores/analysisStore'
 import {useImageStore,type PreprocessType} from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
@@ -156,10 +155,10 @@ const analysisStore=useAnalysisStore()
 const imageStore=useImageStore()
 
 //解构Store状态
-const {currentMode:analysisMode,regionMode,binaryMaskMat}=storeToRefs(analysisStore)
+const {currentMode:analysisMode,regionMode,binaryMaskMat,analysisRegion}=storeToRefs(analysisStore)
 const {isImageLoaded,scaleType:storeScaleType}=storeToRefs(imageStore)
 const {setScaleType}=imageStore
-const {saveMaskToHistory,undoMask,redoMask,updateMask,resetMaskToInitial}=analysisStore
+const {undoMask,redoMask,updateMask,resetMaskToInitial}=analysisStore
 //原有状态
 const activeNames = ref<string[]>(['1']) // 标尺设置面板默认展开
 const scaleType = ref<'macro' | 'micro'>('macro') // 标尺类型，默认宏观
@@ -167,6 +166,7 @@ const scaleType = ref<'macro' | 'micro'>('macro') // 标尺类型，默认宏观
 const handlePreprocess=(type:PreprocessType)=>{
     imageStore.executeProcess(type)
 }
+
 // 监听分析模式变化,同步到Store
 watch(analysisMode,(newMode)=>{
   analysisStore.setMode(newMode)
@@ -241,7 +241,7 @@ const checkMaskExists=():boolean=>{
 // 反选
 const handleInverseMask=()=>{
   if(!checkMaskExists()) return
-  const newBinaryMask=inverseMask(binaryMaskMat.value!)
+  const newBinaryMask=inverseMask(binaryMaskMat.value!,undefined,analysisRegion.value)
   updateMask(newBinaryMask)
   ElMessage.success('已反选')
 }
@@ -281,7 +281,7 @@ const FILL_KERNEL_SIZE = 5 // 孔洞填充的默认核大小
  */
 const executeMaskOperation=(
   operationName:string,
-  operationFn:(src:cv.Mat,kernelSize?:number)=>cv.Mat,
+  operationFn:(src:cv.Mat,kernelSize?:number,region?:AnalysisRegion|null)=>cv.Mat,
   kernelSize:number=DEFAULT_KERNEL_SIZE)=>{
      if (!checkMaskExists()) return
     try {
@@ -289,7 +289,7 @@ const executeMaskOperation=(
         return
       }
       // 执行操作
-      const newBinaryMask = operationFn(binaryMaskMat.value, kernelSize)
+      const newBinaryMask = operationFn(binaryMaskMat.value, kernelSize,analysisRegion.value)
       // 更新蒙版并保存历史
       updateMask(newBinaryMask) 
        ElMessage.success(`${operationName}完成`)
@@ -299,7 +299,7 @@ const executeMaskOperation=(
   }
 
 // 区域去噪
-const handleDenoise=()=>executeMaskOperation('区域去噪',(src)=>denoiseRegion(src,DEFAULT_KERNEL_SIZE,2))
+const handleDenoise=()=>executeMaskOperation('区域去噪',(src)=>denoiseRegion(src,DEFAULT_KERNEL_SIZE,analysisRegion.value,2))
 // 孔洞填充
 const handleFillHoles=()=>executeMaskOperation('孔洞填充',fillHoles,FILL_KERNEL_SIZE)
 // 区域膨胀
