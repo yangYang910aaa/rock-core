@@ -84,6 +84,26 @@
         <!-- 分组2：二次编辑 -->
           <div class="operate-group">
             <div class="group-title">二次编辑</div>
+            <!-- 参数调节滑块 -->
+            <div class="param-section">
+              <div class="param-item">
+                <span class="param-label">去噪/膨胀/腐蚀强度</span>
+                <div class="param-control">
+                  <span class="param-value">{{ morphKernelSize }}</span>
+                  <el-slider 
+                  v-model="morphKernelSize"
+                  :min="1"
+                  :max="11"
+                  :step="2"
+                  class="param-slider"
+                  />
+                </div>
+              </div>
+              <div class="param-reset">
+                <el-button  @click="resetMorphParams">重置默认值</el-button>
+              </div>
+            </div>
+            <!-- 操作按钮 -->
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handleDenoise">区域去噪</el-button></div>
             <div class="btn-wrapper"><el-button class="sidebar-btn" @click="handleFillHoles">孔洞填充</el-button></div>
             <div class="btn-group-row">
@@ -270,9 +290,16 @@ const handleResetInitial=()=>{
 // ==========================================
 // 二次编辑功能实现
 // ==========================================
-// 操作参数（可后续扩展为滑块调节，先给行业通用默认值）
+// 操作参数
+const morphKernelSize = ref<number>(3) // 膨胀/腐蚀/去噪的核大小:1-11的奇数，默认3
 const DEFAULT_KERNEL_SIZE = 3 // 膨胀/腐蚀/去噪的默认核大小
 const FILL_KERNEL_SIZE = 5 // 孔洞填充的默认核大小
+
+// 重置二次编辑参数
+const resetMorphParams=()=>{
+  morphKernelSize.value=DEFAULT_KERNEL_SIZE
+  ElMessage.success('已重置为默认值')
+}
 
 /**
  * 【通用函数】执行蒙版操作
@@ -283,7 +310,7 @@ const FILL_KERNEL_SIZE = 5 // 孔洞填充的默认核大小
 const executeMaskOperation=(
   operationName:string,
   operationFn:(src:cv.Mat,kernelSize?:number,region?:AnalysisRegion|null)=>cv.Mat,
-  kernelSize:number=DEFAULT_KERNEL_SIZE)=>{
+  kernelSize:number=morphKernelSize.value)=>{
      if (!checkMaskExists()) return
     try {
       if (!binaryMaskMat.value) {
@@ -300,7 +327,7 @@ const executeMaskOperation=(
   }
 
 // 区域去噪
-const handleDenoise=()=>executeMaskOperation('区域去噪',(src)=>denoiseRegion(src,DEFAULT_KERNEL_SIZE,analysisRegion.value,2))
+const handleDenoise=()=>executeMaskOperation('区域去噪',(src,kernelSize,region)=>denoiseRegion(src,kernelSize,region,2))
 // 孔洞填充
 const handleFillHoles=()=>executeMaskOperation('孔洞填充',fillHoles,FILL_KERNEL_SIZE)
 // 区域膨胀
@@ -534,5 +561,46 @@ const handleErode=()=>executeMaskOperation('区域腐蚀',erodeRegion)
   color: #909399;
   margin: 0;
   padding-left: 4px;
+}
+/* 参数调节区域样式 */
+.param-section {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.param-item {
+  margin-bottom: 12px;
+}
+
+.param-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.param-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.param-value {
+  min-width: 30px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #409EFF;
+}
+
+.param-slider {
+  flex: 1;
+}
+
+.param-reset {
+  text-align: right;
 }
 </style>
