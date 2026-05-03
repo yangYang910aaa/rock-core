@@ -40,7 +40,9 @@ import RightPanel from '@/components/RightPanel.vue'
 .main-container {
   flex: 1;
   overflow: hidden;
-  height: 0; /* 关键：flex布局下强制占满剩余高度，避免内容溢出 */
+  height: 100%; /* 关键：flex布局下强制占满剩余高度，避免内容溢出 */
+  min-width: 0;
+  position: relative;
 }
 
 /* 画布容器，无内边距，完全占满 */
