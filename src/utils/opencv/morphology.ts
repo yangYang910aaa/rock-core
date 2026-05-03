@@ -44,19 +44,47 @@ const processRegion = (
  * @param kernelSize 核大小，默认3
  * @param iterations 迭代次数，默认1
  * @param region 分析区域（可选，不传则全图操作）
- */
+  * @param denoiseCondition 去噪条件，'less'表示去除小于denoisePixelSize的噪点，'greater'表示去除大于denoisePixelSize的噪点
+  * @param denoisePixelSize 去噪像素大小，默认10
+*/
 export const denoiseRegion = (
   src: cv.Mat,
   kernelSize: number = 3,
   region: AnalysisRegion | null = null,
-  iterations: number = 1
+  iterations: number = 1,
+  denoiseCondition:'less'|'greater'='less',
+  denoisePixelSize:number=10
 ): cv.Mat => {
   return processRegion(src, region, (roi) => {
-    const dst = new cv.Mat()
-    const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(kernelSize, kernelSize))
-    cv.morphologyEx(roi, dst, cv.MORPH_OPEN, kernel, new cv.Point(-1, -1), iterations)
+    // 1.先执行开运算去噪(去除小噪点)
+    const openDst = new cv.Mat()
+    const kernel=cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(kernelSize, kernelSize))
+    cv.morphologyEx(roi, openDst, cv.MORPH_OPEN, kernel, new cv.Point(-1, -1), iterations)
     kernel.delete()
-    return dst
+    
+    // 2.轮廓检测+面积过滤
+    const contours=new cv.MatVector()
+    const hierarchy=new cv.Mat()
+    cv.findContours(openDst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+    // 3.创建全黑蒙版
+    const filteredDst = cv.Mat.zeros(openDst.rows, openDst.cols, cv.CV_8UC1)
+    for(let i=0;i<contours.size();i++){
+      const contour=contours.get(i)
+      const area=cv.contourArea(contour)
+      //根据条件判断是否保留轮廓
+      const shouldKeep=denoiseCondition==='less'
+      ? area>=denoisePixelSize //去除小于:保留>=阈值的
+      : area<=denoisePixelSize //去除大于:保留<=阈值的
+      if(shouldKeep){
+        cv.drawContours(filteredDst,contours,i,new cv.Scalar(255),-1)
+      }
+    }
+    // 4. 释放临时内存
+    openDst.delete()
+    contours.delete()
+    hierarchy.delete()
+    return filteredDst
   })
 }
 
