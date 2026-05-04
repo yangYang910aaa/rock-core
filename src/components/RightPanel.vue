@@ -2,7 +2,20 @@
   <div class="right-panel">
     <!-- 顶部操作按钮 -->
     <div class="action-btns">
-      <el-button type="danger" block class="panel-btn" @click="handleGenerateReport"><el-icon><DocumentAdd /></el-icon>生成分析报告</el-button>
+      <!-- 生成分析报告:下拉菜单选择格式 -->
+      <el-dropdown @command="handleExportReport" trigger="click">
+        <el-button type="danger" block class="panel-btn">
+          <el-icon><DocumentAdd /></el-icon>
+          生成分析报告
+          <el-icon class="el-icon--right"><arrow-down /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="excel">导出Excel</el-dropdown-item>
+            <el-dropdown-item command="pdf">导出PDF</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
       <el-button type="warning" block class="panel-btn" @click="handleReset"><el-icon><Refresh /></el-icon>重置分析</el-button>
       <el-button type="primary" block class="panel-btn" @click="handleStartAnalysis"><el-icon><Search /></el-icon>开始分析</el-button>
     </div>
@@ -104,7 +117,7 @@
            <!-- 粒度分析结果 -->
            <template v-else-if="analysisStore.currentMode === 'size'">
             <el-descriptions :column="1" size="default" border class="result-table">
-              <el-descriptions-item label="总颗粒区域数">{{ analysisStore.sizeResults.totalParticleCount }}</el-descriptions-item>
+              <el-descriptions-item label="颗粒总数">{{ analysisStore.sizeResults.totalParticleCount }}</el-descriptions-item>
               <el-descriptions-item label="平均粒径">{{ (analysisStore.sizeResults.avgParticleSize *unitScale).toFixed(4) }} {{currentUnit}}</el-descriptions-item>
               <el-descriptions-item label="粗颗粒占比">{{ analysisStore.sizeResults.coarseParticleRatio }} %</el-descriptions-item>
               <el-descriptions-item label="细颗粒占比">{{ analysisStore.sizeResults.fineParticleRatio }} %</el-descriptions-item>
@@ -120,26 +133,32 @@
 
 <script setup lang="ts">
 import { ref, watch,computed } from 'vue'
-import { DocumentAdd, Refresh } from '@element-plus/icons-vue'
+import { DocumentAdd, Refresh, ArrowDown } from '@element-plus/icons-vue'
 import {useAnalysisStore, type CrackResults, type HoleResults, type SizeResults} from '@/stores/analysisStore'
 import {useImageStore} from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { executeFullAnalysis, previewAnalysisMask } from '@/services/analysisProcessService'
+import { exportToExcel, exportToPDF } from '@/utils/reportGenerator'
+import { threshold } from '@techstark/opencv-js'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
 const { 
   targetMaskMat, 
   currentMode, 
+  regionMode,
   holeThreshold, 
   crackThreshold, 
   sizeThreshold, 
+  holeResults,
+  crackResults,
+  sizeResults,
   analysisRegion 
 } = storeToRefs(analysisStore)
 
 
-const {processedImageDataUrl,pixelToMm}=storeToRefs(imageStore)
+const {pixelToMm,scaleType}=storeToRefs(imageStore)
 // 根据标尺类型动态切换单位
 const currentUnit=computed(()=>{
   return imageStore.scaleType==='macro'?'mm':'μm'
@@ -201,10 +220,7 @@ const handleReset=()=>{
   }, 300)
   ElMessage.success('重置成功')
 }
-// 生成分析报告
-const handleGenerateReport=()=>{
-  ElMessage.success('生成分析报告成功')
-}
+
 // 开始分析
 const handleStartAnalysis=async()=>{
   if(!imageStore.processedImageDataUrl){
@@ -304,7 +320,58 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   }
 })
 
+//导出报告
+const handleExportReport=async(format:'excel'|'pdf')=>{
+  // 1.检查是否有分析结果
+  const hasResults=
+  (currentMode.value==='hole' && analysisStore.holeResults.totalCount>0)||
+  (currentMode.value==='crack' && analysisStore.crackResults.totalCount>0)||
+  (currentMode.value==='size' && analysisStore.sizeResults.totalParticleCount>0)
+  if(!hasResults){
+    ElMessage.warning('请先进行分析,生成结果后再导出报告')
+    return
+  }
+  
+  // 2.准备岩心基础信息
+  const basicInfo={
+    wellNo:'未填写',
+    wellDepth:'未填写',
+    horizon:'未填写',
+    lithology:'未填写',
+    sampleDate:new Date().toISOString().slice(0,10)
+  }
 
+  // 3.准备分析参数
+  const params={
+    mode:currentMode.value,
+    regionMode:regionMode.value,
+    scaleType:scaleType.value,
+    threshold:currentMode.value==='hole'?holeThreshold.value:currentMode.value==='crack'?crackThreshold.value:sizeThreshold.value,
+  }
+
+  // 4. 获取分析结果
+  let results:any
+  if(currentMode.value==='hole'){
+    results=holeResults.value
+  }else if(currentMode.value==='crack'){
+    results=crackResults.value
+  }else if(currentMode.value==='size'){
+    results=sizeResults.value
+  }
+
+  // 5.导出报告
+  try {
+    if(format==='excel'){
+      await exportToExcel(basicInfo,params,results)
+      ElMessage.success('Excel报告导出成功')
+    }else{
+      exportToPDF(basicInfo,params,results)
+      ElMessage.success('PDF报告导出成功')
+    }
+  } catch (error) {
+    ElMessage.error('导出报告失败,请重试')
+  }
+}
 </script>
 
 <style scoped>
@@ -316,32 +383,44 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  padding: 0 24px;
 }
 
-/* 顶部按钮区：保持不变 */
+/* 顶部按钮区：统一内边距 */
 .action-btns {
   flex-shrink: 0;
-  padding: 16px 24px; /* 按钮区也加了左右内边距，和内容区对齐 */
+  padding: 16px 10px 0 0; 
   border-bottom: 1px solid #e4e7ed;
   background-color: #fafafa;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-right: 16px;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
 }
 
-/* 按钮样式：保持不变，已经对齐 */
+/* 按钮样式*/
 .panel-btn {
+  width: 100% ;
+  max-width: 100% ;
   height: 44px;
   line-height: 42px;
   font-size: 16px;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 /*内容区整体加了充足的右内边距，给右侧留足留白 */
 .panel-content {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 32px 12px 16px;
+  padding: 12px 0px;
   box-sizing: border-box;
 }
 
@@ -381,7 +460,7 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   margin-top: 8px;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 6px; /* 滑块左右加了留白，不会贴到边缘 */
+  padding: 0 6px; 
 }
 
 /* 分析结果表格：加了右内边距，和整体对齐 */
