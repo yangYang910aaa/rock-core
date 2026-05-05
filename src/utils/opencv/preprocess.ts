@@ -153,3 +153,33 @@ export const saturationProcess = (src: cv.Mat, factor: number): cv.Mat => {
   channels.delete()
   return dst
 }
+
+/**
+ * 9. 伽马校正（明暗层次调节）
+ * @param src 输入 Mat（BGRA/BGR/灰度）
+ * @param gamma 伽马值（0.3~3.0，1.0=原图）
+ * @returns 输出 Mat（和输入同类型）
+ */
+export const gammaCorrectionProcess = (src: cv.Mat, gamma: number): cv.Mat => {
+  // 1. 伽马值接近1.0，直接返回原图克隆
+  if (Math.abs(gamma - 1.0) < 0.01) {
+    return src.clone()
+  }
+
+  // 2. 构建查找表（LUT）
+  const lut = new cv.Mat(1, 256, cv.CV_8U)
+  const lutData = lut.data
+  for (let i = 0; i < 256; i++) {
+    // 伽马变换公式：output = 255 * (input/255)^gamma
+    lutData[i] = Math.pow(i / 255, gamma) * 255
+  }
+
+  // 3. 应用查找表
+  const dst = new cv.Mat()
+  cv.LUT(src, lut, dst)
+
+  // 4. 释放查找表内存
+  lut.delete()
+
+  return dst
+}

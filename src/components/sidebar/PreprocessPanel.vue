@@ -5,7 +5,7 @@
         <el-button class="sidebar-btn" @click="handlePreprocess('autoLevels')">自动色阶</el-button>
       </div>
       <div class="btn-wrapper">
-        <el-button class="sidebar-btn" @click="handlePreprocess('curveAdjust')">曲线调节</el-button>
+        <el-button class="sidebar-btn" @click="openGammaDialog">曲线调节</el-button>
       </div>
       <div class="btn-wrapper">
         <el-button class="sidebar-btn" @click="handlePreprocess('grayscale')">灰度化</el-button>
@@ -103,6 +103,42 @@
         <el-button type="primary" @click="confirmSaturationAdjust">确定应用</el-button>
       </template>
     </el-dialog>
+
+    <!-- 曲线调节弹窗 -->
+     <el-dialog
+      v-model="gammaDialogVisible"
+      title="伽马校正(明暗层次调节)"
+      width="400px"
+      destroy-on-close
+     >
+      <div class="gamma-adjust-panel">
+        <div class="adjust-item">
+          <p class="adjust-tip">1.0=原图,大于1亮部变暗,小于1暗部变亮</p>
+          <label class="adjust-label">
+            伽马值 ({{ imageStore.gammaValue.toFixed(1) }})
+          </label>
+          <el-slider
+            v-model="imageStore.gammaValue"
+            :min="0.3"
+            :max="3.0"
+            :step="0.1"
+            show-input
+            class="adjust-slider"
+          />
+          <!-- 直观的效果提示 -->
+          <div class="gamma-hint">
+            <span class="hint-left">🔆 暗部变亮</span>
+            <span class="hint-center">原图</span>
+            <span class="hint-right">🌙 亮部变暗</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button type="danger" @click="gammaDialogVisible=false">取消</el-button>
+        <el-button type="warning" @click="resetGammaParams">重置参数</el-button>
+        <el-button type="primary" @click="confirmGammaAdjust">确定应用</el-button>
+      </template>
+     </el-dialog>
   </div>
 </template>
 
@@ -117,12 +153,13 @@ const imageStore = useImageStore()
 const bcDialogVisible = ref<boolean>(false)
 // 饱和度弹窗状态
 const saturationDialogVisible = ref<boolean>(false)
+// 曲线调节弹窗状态
+const gammaDialogVisible = ref<boolean>(false)
 
 // 处理图像预处理的点击事件
 const handlePreprocess = (type: PreprocessType) => {
   imageStore.executeProcess(type)
 }
-
 // 打开亮度/对比度弹窗
 const openBCDialog = () => {
   if (!imageStore.isImageLoaded) {
@@ -161,6 +198,25 @@ const resetSaturationParams = () => {
 const confirmSaturationAdjust = async () => {
   await imageStore.executeProcess('saturation')
   saturationDialogVisible.value = false
+}
+
+// 打开曲线调节弹窗
+const openGammaDialog = () => {
+  if (!imageStore.isImageLoaded) {
+    ElMessage.warning('请先打开图片再进行调节')
+    return
+  }
+  gammaDialogVisible.value = true
+}
+
+// 重置曲线调节参数
+const resetGammaParams = () => {
+  imageStore.resetGammaParams()
+}
+// 确认应用曲线调节参数
+const confirmGammaAdjust = async () => {
+  await imageStore.executeProcess('gammaCorrection')
+  gammaDialogVisible.value = false
 }
 </script>
 
@@ -223,5 +279,29 @@ const confirmSaturationAdjust = async () => {
   color: #909399;
   margin: 0;
   padding-left: 2px;
+}
+/* 【新增】伽马校正的直观效果提示 */
+.gamma-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #606266;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.gamma-hint .hint-left {
+  color: #409EFF;
+  font-weight: 500;
+}
+
+.gamma-hint .hint-center {
+  color: #909399;
+}
+
+.gamma-hint .hint-right {
+  color: #F56C6C;
+  font-weight: 500;
 }
 </style>

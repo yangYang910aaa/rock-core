@@ -13,7 +13,7 @@ import { executeImageProcess } from '@/services/imageProcessService'
 export type PreprocessType =
   | 'grayscale' // 灰度化
   | 'autoLevels' // 自动色阶
-  | 'curveAdjust' // 曲线调整
+  | 'gammaCorrection' // 曲线调节
   | 'brightnessContrast' // 亮度对比度
   | 'saturation' // 饱和度
   | 'filterSmooth' // 平滑滤波
@@ -43,6 +43,7 @@ export const useImageStore = defineStore('image', () => {
   const processedImageDataUrl = ref<string>('') // 处理后的图片 DataURL
   const isImageProcessed = ref<boolean>(false) // 图片是否已处理
 
+
   // ==========================================
   // 2.2 OpenCV 相关状态
   // ==========================================
@@ -56,7 +57,11 @@ export const useImageStore = defineStore('image', () => {
     alpha: 1.0,
     beta: 0
   })
-  const saturationFactor = ref<number>(1.0) // 饱和度系数
+  // 饱和度系数
+  const saturationFactor = ref<number>(1.0) 
+
+  // 曲线调节系数
+  const gammaValue=ref<number>(1.0)
 
   // ==========================================
   // 2.4 标尺相关状态
@@ -161,6 +166,7 @@ export const useImageStore = defineStore('image', () => {
     isImageProcessed.value = false
     resetBCParams()
     resetSaturationParams()
+    resetGammaParams()
   }
 
   /**
@@ -174,6 +180,7 @@ export const useImageStore = defineStore('image', () => {
     isImageProcessed.value = false
     resetBCParams()
     resetSaturationParams()
+    resetGammaParams()
   }
 
   /**
@@ -188,6 +195,13 @@ export const useImageStore = defineStore('image', () => {
    */
   const resetSaturationParams = () => {
     saturationFactor.value = 1.0
+  }
+
+  /**
+   * 重置曲线调节参数
+   */
+  const resetGammaParams = () => {
+    gammaValue.value = 1.0
   }
 
   // ==========================================
@@ -222,7 +236,8 @@ export const useImageStore = defineStore('image', () => {
       const resultDataUrl = await executeImageProcess(type, {
         imageDataUrl: currentImageDataUrl.value,
         bcParams: bcParams.value,
-        saturationFactor: saturationFactor.value
+        saturationFactor: saturationFactor.value,
+        gammaValue: gammaValue.value,
       })
 
       // 更新处理后的图片
@@ -252,6 +267,7 @@ export const useImageStore = defineStore('image', () => {
     // 预处理参数
     bcParams,
     saturationFactor,
+    gammaValue,
     // 标尺相关状态
     scaleType,
     pixelToMm,
@@ -266,6 +282,7 @@ export const useImageStore = defineStore('image', () => {
     resetAll,
     resetBCParams,
     resetSaturationParams,
+    resetGammaParams,
     // OpenCV 方法
     initOpenCV,
     // 图像处理入口

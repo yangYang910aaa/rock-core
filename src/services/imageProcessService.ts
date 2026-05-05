@@ -12,7 +12,8 @@ import {
   autoLevelsProcess,//自动色阶
   sharpenProcess,//锐化
   brightnessContrastProcess,//亮度/对比度调整
-  saturationProcess//饱和度调节
+  saturationProcess,//饱和度调节
+  gammaCorrectionProcess,//伽马校正调节
 } from '@/utils/opencv'
 //处理参数类型
 interface ProcessParams{
@@ -22,6 +23,7 @@ interface ProcessParams{
         beta:number
     }
     saturationFactor:number
+    gammaValue:number
 }
 /**
  * 统一图像处理业务入口
@@ -30,7 +32,7 @@ interface ProcessParams{
  * @returns 处理后的图片 DataURL
  */
 export const executeImageProcess=async(type:PreprocessType,params:ProcessParams):Promise<string>=>{
-    const {imageDataUrl,bcParams,saturationFactor}=params
+    const {imageDataUrl,bcParams,saturationFactor,gammaValue}=params
     let src:cv.Mat|null =null
     let dst:cv.Mat|null =null
     try {
@@ -79,15 +81,20 @@ export const executeImageProcess=async(type:PreprocessType,params:ProcessParams)
                 ElMessage.success(`饱和度调节完成(系数：${saturationFactor.toFixed(1)})`)
                 break
                 
-            case 'curveAdjust':
-                ElMessage.warning('曲线调整功能暂未实现')
-                dst=src.clone()
+            case 'gammaCorrection':
+                 const gamma = gammaValue || 1.0
+                 dst = gammaCorrectionProcess(src, gamma)
+                 if (Math.abs(gamma - 1.0) < 0.01) {
+                     ElMessage.info('伽马值为1.0,无需调整')
+                } else {
+                ElMessage.success(`伽马校正完成(伽马值：${gamma.toFixed(1)})`)
+                }
                 break                
             default:
                 throw new Error(`未实现的处理类型：${type}`)    
         }
         //3.转换为DataURL
-        const dataUrl=matToDataUrl(dst)
+        const dataUrl=matToDataUrl(dst!)
         return dataUrl
     } catch (error:any) {
         ElMessage.error(`处理失败：${error.message}`)

@@ -31,13 +31,9 @@
         </el-sub-menu>
         <el-sub-menu index="analysis">
           <template #title>图像分析</template>
+          <el-menu-item index="analysis-hole">孔洞分析</el-menu-item>
           <el-menu-item index="analysis-crack">裂缝分析</el-menu-item>
           <el-menu-item index="analysis-size">粒度分析</el-menu-item>
-          <el-menu-item index="analysis-fluorescence">荧光分析</el-menu-item>
-          <el-menu-item index="analysis-cast">铸体分析</el-menu-item>
-          <el-menu-item index="analysis-hole">孔洞分析</el-menu-item>
-          <el-menu-item index="analysis-mineral">矿物计算</el-menu-item>
-          <el-menu-item index="analysis-calc">参数计算</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="report">
           <template #title>报告</template>
@@ -82,9 +78,7 @@ const handleOpenImage = async() => {
         }
         //更新Store状态
         imageStore.setImage(result.filePath,result.dataUrl)
-        console.log('成功打开图片',result.filePath)
     } catch (error) {
-        console.error('打开图片失败:', error)
     }
 }
 //刷新函数

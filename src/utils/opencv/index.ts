@@ -18,7 +18,8 @@ export {
   autoLevelsProcess,//自动色阶
   sharpenProcess,//锐化
   brightnessContrastProcess,//亮度对比度调整
-  saturationProcess//饱和度调整
+  saturationProcess,//饱和度调整
+  gammaCorrectionProcess,//伽马校正调节
 } from './preprocess'
 
 // 分析模式工具
