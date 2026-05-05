@@ -365,10 +365,11 @@ const handleExportReport=async(format:'excel'|'pdf')=>{
       await exportToExcel(basicInfo,params,results)
       ElMessage.success('Excel报告导出成功')
     }else{
-      exportToPDF(basicInfo,params,results)
+     await exportToPDF(basicInfo,params,results)
       ElMessage.success('PDF报告导出成功')
     }
   } catch (error) {
+    console.error('导出报告失败:', error)
     ElMessage.error('导出报告失败,请重试')
   }
 }

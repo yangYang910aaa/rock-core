@@ -1,6 +1,3 @@
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 import {saveAs} from 'file-saver';
 import type {HoleResults,CrackResults,SizeResults} from '@/stores/analysisStore';
@@ -224,98 +221,191 @@ export const exportToExcel = async (
 /**
  * 生成PDF报告
  */
-export const exportToPDF=(
-    basicInfo:CoreBasicInfo,
-    params:AnalysisParams,
-    results:HoleResults|CrackResults|SizeResults
-)=>{
-    const doc=new jsPDF()
-    // 1.标题
-    doc.setFontSize(20)
-    doc.text('岩心孔洞/裂缝/粒度分析报告',14,22)
+export const exportToPDF = async (
+  basicInfo: CoreBasicInfo,
+  params: AnalysisParams,
+  results: HoleResults | CrackResults | SizeResults
+) => {
+  try {
+    console.log('=== 开始生成PDF ===')
+    // 1.准备通用变量
+    let modeName = ''
+    let modeText = ''
+    const unit = params.scaleType === 'macro' ? 'mm' : 'μm'
+    let resultHtml = ''
 
-    // 2.岩心基础信息
-    doc.setFontSize(14)
-    doc.text('岩心基础信息',14,35)
-    doc.setFontSize(12)
-    const basicInfoData=[
-        ['井号',basicInfo.wellNo],
-        ['井深',basicInfo.wellDepth],
-        ['层位',basicInfo.horizon],
-        ['岩性',basicInfo.lithology],
-        ['取样日期',basicInfo.sampleDate],
-    ];
-    autoTable(doc,{
-        startY:40,
-        head:[],
-        body:basicInfoData,
-        theme:'plain',
-        styles:{fontSize:11}
-    })
-
-    // 3.分析参数
-    const yAfterBasic=(doc as any).lastAutoTable.finalY+10
-    doc.setFontSize(14)
-    doc.text('分析参数',14,yAfterBasic)
-    doc.setFontSize(12)
-    const paramsData=[
-        ['分析模式',params.mode==='hole'?'孔洞分析':params.mode==='crack'?'裂缝分析':'粒度分析'],
-        ['分析区域',params.regionMode==='full'?'全图分析':'局部分析'],
-        ['标尺类型',params.scaleType==='macro'?'宏观(mm)':'微观(μm)'],
-    ]
-    autoTable(doc,{
-        startY:yAfterBasic+5,
-        head:[],
-        body:paramsData,
-        theme:'plain',
-        styles:{fontSize:11}
-    })
-
-    // 4.统计结果
-    const yAfterParams=(doc as any).lastAutoTable.finalY+10
-    doc.setFontSize(14)
-    doc.text('统计结果',14,yAfterParams)
-    doc.setFontSize(12)
-    let resultsData:any[][]=[]
-    if(params.mode==='hole'){
-        const holeResults = results as HoleResults
-        resultsData = [
-        ['孔洞总数', holeResults.totalCount],
-        ['孔洞总面积', `${holeResults.totalArea.toFixed(4)} ${params.scaleType === 'macro' ? 'mm²' : 'μm²'}`],
-        ['平均孔径', `${holeResults.avgDiameter.toFixed(4)} ${params.scaleType === 'macro' ? 'mm' : 'μm'}`],
-        ['最大孔径', `${holeResults.maxDiameter.toFixed(4)} ${params.scaleType === 'macro' ? 'mm' : 'μm'}`],
-        ['最小孔径', `${holeResults.minDiameter.toFixed(4)} ${params.scaleType === 'macro' ? 'mm' : 'μm'}`],
-        ['面孔率', `${holeResults.faceRate.toFixed(2)} %`]
-        ]
-    }else if(params.mode==='crack'){
-        const crackResults = results as CrackResults
-        resultsData = [
-        ['裂缝条数', crackResults.totalCount],
-        ['裂缝总长度', `${crackResults.totalLength.toFixed(4)} ${params.scaleType === 'macro' ? 'mm' : 'μm'}`],
-        ['平均宽度', `${crackResults.avgWidth.toFixed(4)} ${params.scaleType === 'macro' ? 'mm' : 'μm'}`],
-        ['面密度', `${crackResults.areaDensity.toFixed(4)} ${params.scaleType === 'macro' ? '条/mm²' : '条/μm²'}`],
-        ['线密度', `${crackResults.lineDensity.toFixed(4)} ${params.scaleType === 'macro' ? '条/mm' : '条/μm'}`]
-        ]
-    }else{
-        const sizeResults = results as SizeResults
-        resultsData = [
-        ['颗粒总数', sizeResults.totalParticleCount],
-        ['平均粒径', `${sizeResults.avgParticleSize.toFixed(4)} ${params.scaleType === 'macro' ? 'mm' : 'μm'}`],
-        ['粗颗粒占比', `${sizeResults.coarseParticleRatio.toFixed(2)} %`],
-        ['细颗粒占比', `${sizeResults.fineParticleRatio.toFixed(2)} %`],
-        ['均匀度', `${sizeResults.particleUniformity.toFixed(4)}`],
-        ['岩石颗粒占比', `${sizeResults.rockParticleRate.toFixed(2)} %`]
-        ]
+    //模式名赋值
+    if (params.mode === 'hole') {
+      modeName = '孔洞'
+      modeText = '孔洞分析'
+    } else if (params.mode === 'crack') {
+      modeName = '裂缝'
+      modeText = '裂缝分析'
+    } else {
+      modeName = '粒度'
+      modeText = '粒度分析'
     }
-    autoTable(doc,{
-        startY:yAfterParams+5,
-        head:[],
-        body:resultsData,
-        theme:'striped',
-        styles:{fontSize:11}
-    })
 
-    // 5.保存文件
-    const fileName=`岩心分析报告_${new Date().toISOString().slice(0,10)}.pdf`
-    doc.save(fileName)
+    //2. 根据分析模式生成结果HTML
+    if (params.mode === 'hole') {
+      const res = results as HoleResults
+      resultHtml = `
+      <tr><td>孔洞总数</td><td>${res.totalCount}</td></tr>
+      <tr><td>孔洞总面积</td><td>${res.totalArea.toFixed(4)} ${unit}²</td></tr>
+      <tr><td>平均孔径</td><td>${res.avgDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>最大孔径</td><td>${res.maxDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>最小孔径</td><td>${res.minDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
+      `
+    } else if (params.mode === 'crack') {
+      const res = results as CrackResults
+      resultHtml = `
+      <tr><td>裂缝条数</td><td>${res.totalCount}</td></tr>
+      <tr><td>裂缝总长度</td><td>${res.totalLength.toFixed(4)} ${unit}</td></tr>
+      <tr><td>平均宽度</td><td>${res.avgWidth.toFixed(4)} ${unit}</td></tr>
+      <tr><td>面密度</td><td>${res.areaDensity.toFixed(4)} 条/${unit}²</td></tr>
+      <tr><td>线密度</td><td>${res.lineDensity.toFixed(4)} 条/${unit}</td></tr>
+      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
+      `
+    } else {
+      const res = results as SizeResults
+      resultHtml = `
+      <tr><td>颗粒总数</td><td>${res.totalParticleCount}</td></tr>
+      <tr><td>平均粒径</td><td>${res.avgParticleSize.toFixed(4)} ${unit}</td></tr>
+      <tr><td>粗颗粒占比</td><td>${res.coarseParticleRatio.toFixed(2)} %</td></tr>
+      <tr><td>细颗粒占比</td><td>${res.fineParticleRatio.toFixed(2)} %</td></tr>
+      <tr><td>颗粒均匀度</td><td>${res.particleUniformity.toFixed(4)}</td></tr>
+      <tr><td>岩石颗粒占比</td><td>${res.rockParticleRate.toFixed(2)} %</td></tr>
+      `
+    }
+
+    //3. 生成完整的HTML内容
+    const reportHtml = `
+      <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>岩心${modeName}分析报告</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: 'Microsoft YaHei', 'SimSun', sans-serif;
+          padding: 40px;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+        h1 {
+          text-align: center;
+          font-size: 24px;
+          font-weight: bold;
+          color: #409EFF;
+          margin-bottom: 30px;
+        }
+        h2 {
+          font-size: 16px;
+          font-weight: bold;
+          margin: 25px 0 12px 0;
+          padding-left: 10px;
+          border-left: 4px solid #409EFF;
+          background-color: #F0F9FF;
+          padding-top: 6px;
+          padding-bottom: 6px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 10px;
+        }
+        td {
+          border: 1px solid #DCDFE6;
+          padding: 10px 12px;
+          vertical-align: middle;
+        }
+        td:first-child {
+          width: 30%;
+          font-weight: 500;
+          background-color: #F5F7FA;
+        }
+        @page {
+          size: A4;
+          margin: 20mm;
+        }
+        @media print {
+          footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 5px;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>岩心${modeName}分析报告</h1>
+      
+      <h2>岩心基础信息</h2>
+      <table>
+        <tr><td>井号</td><td>${basicInfo.wellNo}</td></tr>
+        <tr><td>井深</td><td>${basicInfo.wellDepth}</td></tr>
+        <tr><td>层位</td><td>${basicInfo.horizon}</td></tr>
+        <tr><td>岩性</td><td>${basicInfo.lithology}</td></tr>
+        <tr><td>取样日期</td><td>${basicInfo.sampleDate}</td></tr>
+      </table>
+
+      <h2>分析参数</h2>
+      <table>
+        <tr><td>分析模式</td><td>${modeText}</td></tr>
+        <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
+        <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
+      </table>
+
+      <h2>统计结果</h2>
+      <table>
+        ${resultHtml}
+      </table>
+      <footer>岩心分析报告 - 生成时间：${new Date().toLocaleString()}</footer>
+    </body>
+    </html>
+    `
+
+    //4. 调用主进程,生成PDF事件
+    const electron = window.require ? window.require('electron') : require('electron')
+    const { ipcRenderer } = electron
+    if (!ipcRenderer) {
+      throw new Error('无法获取ipcRenderer,请检查Electron配置')
+    }
+
+    const base64Pdf = await ipcRenderer.invoke('generate-pdf', reportHtml)
+
+    if (!base64Pdf) {
+      throw new Error('主进程生成PDF失败,返回空结果')
+    }
+
+    //5. 把Base64 转成 Blob 并下载
+    const byteCharacters = atob(base64Pdf)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: 'application/pdf' })
+    
+    // 校验saveAs是否存在
+    if (typeof saveAs === 'undefined') {
+      throw new Error('saveAs未导入,请检查file-saver的导入')
+    }
+    saveAs(blob, `岩心${modeName}分析报告_${new Date().toISOString().slice(0, 10)}.pdf`)
+
+  } catch (error: any) {
+    throw new Error(`生成PDF失败:${error.message || '未知错误'}`)
+  }
 }
