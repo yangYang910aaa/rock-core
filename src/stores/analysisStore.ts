@@ -6,7 +6,7 @@ import { maskToVisual } from '@/utils/opencv'
 import { copyMat, deleteMatSafe } from '@/utils/opencv/core'
 
 // ==========================================
-// 1. 类型定义
+//  类型定义
 // ==========================================
 export type AnalysisMode='hole'|'crack'|'size'
 export type RegionMode='full'|'rect'
@@ -70,11 +70,22 @@ export interface SizeResults{
 }
 
 // ==========================================
-// 4. Store 定义
+// 岩心基础信息类型定义
+// ==========================================
+export interface CoreBasicInfo{
+    wellNo:string       //井号
+    wellDepth:string    //井深
+    horizon:string      //层位
+    lithology:string    //岩性
+    sampleDate:string   //取样日期
+}
+
+// ==========================================
+// Store 定义
 // ==========================================
 export const useAnalysisStore=defineStore('analysis',()=>{
    // ==========================================
-   // 4.1 基础状态
+   // 基础状态
    // ==========================================
     const currentMode=ref<AnalysisMode>('hole')
     const regionMode=ref<RegionMode>('full')
@@ -82,7 +93,18 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const isAnalyzing=ref<boolean>(false)
 
    // ==========================================
-   // 4.2 蒙版核心状态（彻底拆分二值/可视化蒙版）
+   // 岩心基础信息状态
+   // ==========================================
+    const coreBasicInfo=ref<CoreBasicInfo>({
+        wellNo:'',
+        wellDepth:'',
+        horizon:'',
+        lithology:'',
+        sampleDate:new Date().toISOString().slice(0,10) // 默认当前日期
+    })
+
+   // ==========================================
+   // 蒙版核心状态（彻底拆分二值/可视化蒙版）
    // ==========================================
     const analysisRegion=ref<AnalysisRegion>({x:0,y:0,width:0,height:0})
     // 可视化RGBA蒙版（仅用于画布显示，不参与计算）
@@ -93,21 +115,21 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const sourceImageSize = ref<{ width: number, height: number }>({ width: 0, height: 0 })
 
    // ==========================================
-   // 4.3 阈值状态
+   // 阈值状态
    // ==========================================
     const holeThreshold=ref<HoleThreshold>({minThreshold:0,maxThreshold:128})
     const crackThreshold=ref<CrackThreshold>({minWidth:0.1,maxWidth:5.0,minLength:10,cannyLow:50,cannyHigh:150})
     const sizeThreshold=ref<SizeThreshold>({rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50})
 
    // ==========================================
-   // 4.4 分析结果状态
+   // 分析结果状态
    // ==========================================
     const holeResults=ref<HoleResults>({totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0})
     const crackResults=ref<CrackResults>({totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0})
     const sizeResults=ref<SizeResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0})
 
     // ==========================================
-    // 5. 基础操作
+    // 基础操作
     // ==========================================
     const setMode=(mode:AnalysisMode)=>{
         currentMode.value=mode
@@ -133,6 +155,18 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         crackThreshold.value={minWidth:0.1,maxWidth:5.0,minLength:10,cannyLow:50,cannyHigh:150}
         sizeThreshold.value={rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50}
     }
+    const resetCoreBasicInfo=()=>{
+        coreBasicInfo.value={
+            wellNo:'',
+            wellDepth:'',
+            horizon:'',
+            lithology:'',
+            sampleDate:new Date().toISOString().slice(0,10)
+        }
+    }
+    const setCoreBasicInfo=(info:CoreBasicInfo)=>{
+        coreBasicInfo.value={...info}
+    }
     const resetAll=()=>{
         currentMode.value='hole'
         regionMode.value='full'
@@ -141,6 +175,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         resetAnalysisRegion()
         resetResults()
         resetThresholds()
+        resetCoreBasicInfo()
         disposeMasks()
     }
 
@@ -375,6 +410,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     targetMaskMat,
     binaryMaskMat, // 导出二值蒙版
     sourceImageSize, // 原图全图尺寸
+    // 岩心基础信息
+    coreBasicInfo,
     // 阈值
     holeThreshold,
     crackThreshold,
@@ -390,6 +427,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     resetAnalysisRegion,
     resetResults,
     resetThresholds,
+    resetCoreBasicInfo,
+    setCoreBasicInfo,
     resetAll,
     clearTargetMask,
     saveMaskToHistory,

@@ -23,6 +23,32 @@
     <!-- 可滚动的参数&结果区域 -->
     <div class="panel-content">
       <el-collapse v-model="activeNames">
+        <!-- 岩心基础信息面板 -->
+        <el-collapse-item title="岩心基础信息" name="0">
+          <el-form label-width="80px" size="default" class="panel-form">
+            <el-form-item label="井号">
+              <el-input v-model="analysisStore.coreBasicInfo.wellNo" placeholder="请输入井号" />
+            </el-form-item>
+            <el-form-item label="井深">
+              <el-input v-model="analysisStore.coreBasicInfo.wellDepth" placeholder="请输入井深" />
+            </el-form-item>
+            <el-form-item label="层位">
+              <el-input v-model="analysisStore.coreBasicInfo.horizon" placeholder="请输入层位" />
+            </el-form-item>
+            <el-form-item label="岩性">
+              <el-input v-model="analysisStore.coreBasicInfo.lithology" placeholder="请输入岩性" />
+            </el-form-item>
+            <el-form-item label="取样日期">
+              <el-date-picker
+                v-model="analysisStore.coreBasicInfo.sampleDate"
+                type="date"
+                placeholder="选择日期"
+                style="width: 100%;"
+              />
+            </el-form-item>
+          </el-form>
+        </el-collapse-item>
+
         <!-- 阈值设置面板 :根据分析模式动态显示-->
         <el-collapse-item title="阈值设置" name="1">
           <el-form label-width="90px" size="default" class="panel-form">
@@ -136,11 +162,10 @@ import { ref, watch,computed } from 'vue'
 import { DocumentAdd, Refresh, ArrowDown } from '@element-plus/icons-vue'
 import {useAnalysisStore, type CrackResults, type HoleResults, type SizeResults} from '@/stores/analysisStore'
 import {useImageStore} from '@/stores/imageStore'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { executeFullAnalysis, previewAnalysisMask } from '@/services/analysisProcessService'
 import { exportToExcel, exportToPDF } from '@/utils/reportGenerator'
-import { threshold } from '@techstark/opencv-js'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
@@ -154,7 +179,8 @@ const {
   holeResults,
   crackResults,
   sizeResults,
-  analysisRegion 
+  analysisRegion,
+  coreBasicInfo
 } = storeToRefs(analysisStore)
 
 
@@ -169,7 +195,7 @@ const unitScale=computed(()=>{
   return imageStore.scaleType==='macro'?1:1000
 })
 
-const activeNames = ref<string[]>(['1','2'])
+const activeNames = ref<string[]>(['0','1','2'])
 // 防抖处理，避免频繁调用
 let previewDebounceTimer: NodeJS.Timeout | null = null
 //是否正在重置分析
@@ -250,7 +276,7 @@ const handleStartAnalysis=async()=>{
       imageStore.processedImageDataUrl,
       threshold!,
       analysisRegion.value,
-      pixelToMm.value //传入标尺系数
+      pixelToMm.value 
     )
     if(results){
       switch(currentMode.value){
@@ -324,24 +350,49 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
 const handleExportReport=async(format:'excel'|'pdf')=>{
   // 1.检查是否有分析结果
   const hasResults=
-  (currentMode.value==='hole' && analysisStore.holeResults.totalCount>0)||
-  (currentMode.value==='crack' && analysisStore.crackResults.totalCount>0)||
-  (currentMode.value==='size' && analysisStore.sizeResults.totalParticleCount>0)
+  (currentMode.value==='hole' && holeResults.value.totalCount>0)||
+  (currentMode.value==='crack' && crackResults.value.totalCount>0)||
+  (currentMode.value==='size' && sizeResults.value.totalParticleCount>0)
   if(!hasResults){
     ElMessage.warning('请先进行分析,生成结果后再导出报告')
     return
   }
   
-  // 2.准备岩心基础信息
+  // 2.检查岩心基础信息是否填写完整
+  const isBasicInfoFilled = 
+    coreBasicInfo.value.wellNo &&
+    coreBasicInfo.value.wellDepth &&
+    coreBasicInfo.value.horizon &&
+    coreBasicInfo.value.lithology
+  
+  // 3.如果未填写完整，弹出确认框
+  if (!isBasicInfoFilled) {
+    try {
+      await ElMessageBox.confirm(
+        '岩心基础信息未填写完整，确定要导出报告吗？',
+        '提示',
+        {
+          confirmButtonText: '确定导出',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+    } catch {
+      // 用户点击取消
+      return
+    }
+  }
+  
+  // 4.准备岩心基础信息（从Store获取用户输入）
   const basicInfo={
-    wellNo:'未填写',
-    wellDepth:'未填写',
-    horizon:'未填写',
-    lithology:'未填写',
-    sampleDate:new Date().toISOString().slice(0,10)
+    wellNo: coreBasicInfo.value.wellNo || '未填写',
+    wellDepth: coreBasicInfo.value.wellDepth || '未填写',
+    horizon: coreBasicInfo.value.horizon || '未填写',
+    lithology: coreBasicInfo.value.lithology || '未填写',
+    sampleDate: coreBasicInfo.value.sampleDate || new Date().toISOString().slice(0,10)
   }
 
-  // 3.准备分析参数
+  // 5.准备分析参数
   const params={
     mode:currentMode.value,
     regionMode:regionMode.value,
@@ -349,7 +400,7 @@ const handleExportReport=async(format:'excel'|'pdf')=>{
     threshold:currentMode.value==='hole'?holeThreshold.value:currentMode.value==='crack'?crackThreshold.value:sizeThreshold.value,
   }
 
-  // 4. 获取分析结果
+  // 6. 获取分析结果
   let results:any
   if(currentMode.value==='hole'){
     results=holeResults.value
@@ -359,7 +410,7 @@ const handleExportReport=async(format:'excel'|'pdf')=>{
     results=sizeResults.value
   }
 
-  // 5.导出报告
+  // 7.导出报告
   try {
     if(format==='excel'){
       await exportToExcel(basicInfo,params,results)
