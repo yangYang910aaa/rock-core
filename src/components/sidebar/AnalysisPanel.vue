@@ -288,6 +288,12 @@ const handleDenoisePreview = () => {
 const handleDenoiseConfirm = () => {
   if (!binaryMaskMat.value) return
   try {
+    // 先释放备份蒙版，防止watch触发时恢复原始蒙版
+    if (backupBinaryMask) {
+      deleteMatSafe(backupBinaryMask)
+      backupBinaryMask = null
+    }
+    
     // 执行去噪
     const newBinaryMask = denoiseRegion(
       binaryMaskMat.value,
