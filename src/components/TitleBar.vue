@@ -25,9 +25,14 @@
         <el-sub-menu index="process">
           <template #title>图像处理</template>
           <el-menu-item index="process-level">自动色阶</el-menu-item>
+          <el-menu-item index="process-curve">曲线调节</el-menu-item>
           <el-menu-item index="process-gray">灰度化</el-menu-item>
-          <el-menu-item index="process-bright">亮度/对比度调整</el-menu-item>
+          <el-menu-item index="process-brightContrast">亮度/对比度</el-menu-item>
+          <el-menu-item index="process-saturation">饱和度调节</el-menu-item>
           <el-menu-item index="process-filter">滤波平滑</el-menu-item>
+          <el-menu-item index="process-sharpen">锐化</el-menu-item>
+          <el-menu-item index="process-edgeDetect">边缘检测</el-menu-item>
+          <el-menu-item index="process-negativeEffect">底片效果</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="analysis">
           <template #title>图像分析</template>
