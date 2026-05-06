@@ -166,12 +166,13 @@ import { ref, watch,computed } from 'vue'
 import { DocumentAdd, Refresh, ArrowDown } from '@element-plus/icons-vue'
 import {useAnalysisStore, type CrackResults, type HoleResults, type SizeResults} from '@/stores/analysisStore'
 import {useImageStore} from '@/stores/imageStore'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { executeFullAnalysis, previewAnalysisMask } from '@/services/analysisProcessService'
-import { exportToExcel, exportToPDF } from '@/utils/reportGenerator'
+import { useReportExport } from '@/composables/useReportExport'
 
 const analysisStore = useAnalysisStore()
+const { handleExportReport } = useReportExport()
 const imageStore = useImageStore()
 const { 
   targetMaskMat, 
@@ -350,84 +351,6 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   }
 })
 
-//导出报告
-const handleExportReport=async(format:'excel'|'pdf')=>{
-  // 1.检查是否有分析结果
-  const hasResults=
-  (currentMode.value==='hole' && holeResults.value.totalCount>0)||
-  (currentMode.value==='crack' && crackResults.value.totalCount>0)||
-  (currentMode.value==='size' && sizeResults.value.totalParticleCount>0)
-  if(!hasResults){
-    ElMessage.warning('请先进行分析,生成结果后再导出报告')
-    return
-  }
-  
-  // 2.检查岩心基础信息是否填写完整
-  const isBasicInfoFilled = 
-    coreBasicInfo.value.wellNo &&
-    coreBasicInfo.value.wellDepth &&
-    coreBasicInfo.value.horizon &&
-    coreBasicInfo.value.lithology
-  
-  // 3.如果未填写完整，弹出确认框
-  if (!isBasicInfoFilled) {
-    try {
-      await ElMessageBox.confirm(
-        '岩心基础信息未填写完整，确定要导出报告吗？',
-        '提示',
-        {
-          confirmButtonText: '确定导出',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-      )
-    } catch {
-      // 用户点击取消
-      return
-    }
-  }
-  
-  // 4.准备岩心基础信息（从Store获取用户输入）
-  const basicInfo={
-    wellNo: coreBasicInfo.value.wellNo || '未填写',
-    wellDepth: coreBasicInfo.value.wellDepth || '未填写',
-    horizon: coreBasicInfo.value.horizon || '未填写',
-    lithology: coreBasicInfo.value.lithology || '未填写',
-    sampleDate: coreBasicInfo.value.sampleDate || new Date().toISOString().slice(0,10)
-  }
-
-  // 5.准备分析参数
-  const params={
-    mode:currentMode.value,
-    regionMode:regionMode.value,
-    scaleType:scaleType.value,
-    threshold:currentMode.value==='hole'?holeThreshold.value:currentMode.value==='crack'?crackThreshold.value:sizeThreshold.value,
-  }
-
-  // 6. 获取分析结果
-  let results:any
-  if(currentMode.value==='hole'){
-    results=holeResults.value
-  }else if(currentMode.value==='crack'){
-    results=crackResults.value
-  }else if(currentMode.value==='size'){
-    results=sizeResults.value
-  }
-
-  // 7.导出报告
-  try {
-    if(format==='excel'){
-      await exportToExcel(basicInfo,params,results)
-      ElMessage.success('Excel报告导出成功')
-    }else{
-     await exportToPDF(basicInfo,params,results)
-      ElMessage.success('PDF报告导出成功')
-    }
-  } catch (error) {
-    console.error('导出报告失败:', error)
-    ElMessage.error('导出报告失败,请重试')
-  }
-}
 </script>
 
 <style scoped>

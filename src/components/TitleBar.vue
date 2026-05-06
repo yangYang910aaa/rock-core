@@ -15,12 +15,13 @@
         background-color="transparent"
         active-text-color="#409eff"
         class="title-menu no-drag"
+        @select="handleMenuSelect"
       >
         <el-sub-menu index="file">
           <template #title>文件</template>
-          <el-menu-item index="file-open" @click="handleOpenImage">打开岩心图片</el-menu-item>
+          <el-menu-item index="file-open">打开岩心图片</el-menu-item>
           <el-menu-item index="file-save">保存项目</el-menu-item>
-          <el-menu-item index="file-quit" @click="handleClose">退出软件</el-menu-item>
+          <el-menu-item index="file-quit">退出软件</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="process">
           <template #title>图像处理</template>
@@ -48,8 +49,8 @@
         </el-sub-menu>
         <el-sub-menu index="view">
             <template #title>视图</template>
-            <el-menu-item index="reload" @click="handleReload">刷新</el-menu-item>
-            <el-menu-item index="devtools" @click="handleOpenDevTools">打开开发者工具</el-menu-item>
+            <el-menu-item index="reload">刷新</el-menu-item>
+            <el-menu-item index="devtools">打开开发者工具</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </div>
@@ -64,35 +65,67 @@
 </template>
 
 <script setup lang="ts">
-import { useImageStore } from '@/stores/imageStore'
+import { useImageStore, type PreprocessType } from '@/stores/imageStore'
+import { useAnalysisStore } from '@/stores/analysisStore'
+import { useReportExport } from '@/composables/useReportExport'
 
-// 渲染进程正确导入ipcRenderer
 const { ipcRenderer } = window.require('electron')
-const imageStore=useImageStore()
-// 窗口控制函数
+const imageStore = useImageStore()
+const analysisStore = useAnalysisStore()
+const { handleExportReport } = useReportExport()
+
+// 窗口控制
 const handleMin = () => ipcRenderer.send('window-min')
 const handleMax = () => ipcRenderer.send('window-max')
 const handleClose = () => ipcRenderer.send('window-close')
+const handleReload = () => ipcRenderer.send('window-reload')
+const handleOpenDevTools = () => ipcRenderer.send('window-devtools')
 
-// 打开岩心图片函数
-const handleOpenImage = async() => {
-    try {
-        const result=await  ipcRenderer.invoke('open-image-dialog')
-        if(!result){
-            return
-        }
-        //更新Store状态
-        imageStore.setImage(result.filePath,result.dataUrl)
-    } catch (error) {
+// 打开岩心图片
+const handleOpenImage = async () => {
+  try {
+    const result = await ipcRenderer.invoke('open-image-dialog')
+    if (result) {
+      imageStore.setImage(result.filePath, result.dataUrl)
     }
+  } catch (error) {
+  }
 }
-//刷新函数
-const handleReload=()=>{
-  ipcRenderer.send('window-reload')
+
+// 图像预处理：不需要弹窗的直接执行
+const preprocessActions: Record<string, PreprocessType> = {
+  'process-level': 'autoLevels',
+  'process-gray': 'grayscale',
+  'process-filter': 'filterSmooth',
+  'process-sharpen': 'sharpen',
+  'process-edgeDetect': 'edgeDetect',
+  'process-negativeEffect': 'negativeEffect',
 }
-//打开开发者工具函数
-const handleOpenDevTools=()=>{
-  ipcRenderer.send('window-devtools')
+
+// 统一菜单分发
+const handleMenuSelect = (index: string) => {
+  // 文件
+  if (index === 'file-open') handleOpenImage()
+  else if (index === 'file-quit') handleClose()
+  // 视图
+  else if (index === 'reload') handleReload()
+  else if (index === 'devtools') handleOpenDevTools()
+  // 图像处理：直接执行型
+  else if (preprocessActions[index]) {
+    imageStore.executeProcess(preprocessActions[index])
+  }
+  // 图像处理：弹窗型
+  else if (index === 'process-curve') imageStore.openGammaDialog()
+  else if (index === 'process-brightContrast') imageStore.openBCDialog()
+  else if (index === 'process-saturation') imageStore.openSaturationDialog()
+  // 图像分析
+  else if (index === 'analysis-hole') analysisStore.setMode('hole')
+  else if (index === 'analysis-crack') analysisStore.setMode('crack')
+  else if (index === 'analysis-size') analysisStore.setMode('size')
+  // 报告
+  else if (index === 'report-export-excel') handleExportReport('excel')
+  else if (index === 'report-export-pdf') handleExportReport('pdf')
+  else if (index === 'report-preview') handleExportReport('pdf')
 }
 </script>
 

@@ -64,6 +64,13 @@ export const useImageStore = defineStore('image', () => {
   const gammaValue=ref<number>(1.0)
 
   // ==========================================
+  // 2.3.1 预处理弹窗状态
+  // ==========================================
+  const bcDialogVisible=ref<boolean>(false)
+  const saturationDialogVisible=ref<boolean>(false)
+  const gammaDialogVisible=ref<boolean>(false)
+
+  // ==========================================
   // 2.4 标尺相关状态
   // ==========================================
   // 标尺类型：macro=宏观(mm)，micro=微观(μm)
@@ -204,6 +211,30 @@ export const useImageStore = defineStore('image', () => {
     gammaValue.value = 1.0
   }
 
+  const openBCDialog = () => {
+    if (!isImageLoaded.value) {
+      ElMessage.warning('请先打开图片再进行调节')
+      return
+    }
+    bcDialogVisible.value = true
+  }
+
+  const openSaturationDialog = () => {
+    if (!isImageLoaded.value) {
+      ElMessage.warning('请先打开图片再进行调节')
+      return
+    }
+    saturationDialogVisible.value = true
+  }
+
+  const openGammaDialog = () => {
+    if (!isImageLoaded.value) {
+      ElMessage.warning('请先打开图片再进行调节')
+      return
+    }
+    gammaDialogVisible.value = true
+  }
+
   // ==========================================
   // 4. OpenCV 初始化
   // ==========================================
@@ -268,6 +299,10 @@ export const useImageStore = defineStore('image', () => {
     bcParams,
     saturationFactor,
     gammaValue,
+    // 预处理弹窗状态
+    bcDialogVisible,
+    saturationDialogVisible,
+    gammaDialogVisible,
     // 标尺相关状态
     scaleType,
     pixelToMm,
@@ -283,6 +318,10 @@ export const useImageStore = defineStore('image', () => {
     resetBCParams,
     resetSaturationParams,
     resetGammaParams,
+    // 预处理弹窗操作
+    openBCDialog,
+    openSaturationDialog,
+    openGammaDialog,
     // OpenCV 方法
     initOpenCV,
     // 图像处理入口
