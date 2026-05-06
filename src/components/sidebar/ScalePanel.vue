@@ -1,6 +1,6 @@
 <template>
   <div class="scale-panel">
-    <el-radio-group v-model="scaleType" type="button" class="scale-radio-group">
+    <el-radio-group v-model="localScaleType" type="button" class="scale-radio-group">
       <el-radio-button label="macro">宏观(mm)</el-radio-button>
       <el-radio-button label="micro">微观(μm)</el-radio-button>
     </el-radio-group>
@@ -15,18 +15,18 @@
             :step="0.1"
             style="width: 100%;"
           ></el-input-number>
-          <span class="unit-tip">{{ imageStore.scaleType === 'macro' ? 'mm' : 'μm' }}</span>
+          <span class="unit-tip">{{ localScaleType === 'macro' ? 'mm' : 'μm' }}</span>
         </el-form-item>
       </el-form>
       <div class="calibrate-btns">
         <el-button
           :type="imageStore.isCalibrating ? 'danger' : 'primary'"
           class="sidebar-btn small-btn"
-          @click="imageStore.toggleCalibrate(!imageStore.isCalibrating)"
+          @click="toggleCalibrate(!isCalibrating)"
         >
-          {{ imageStore.isCalibrating ? '取消校准' : '开始校准' }}
+          {{ isCalibrating ? '取消校准' : '开始校准' }}
         </el-button>
-        <el-button class="sidebar-btn small-btn" @click="imageStore.resetCalibrate">
+        <el-button class="sidebar-btn small-btn" @click="resetCalibrate">
           重置默认
         </el-button>
       </div>
@@ -41,15 +41,27 @@ import { useImageStore } from '@/stores/imageStore'
 import { storeToRefs } from 'pinia'
 
 const imageStore = useImageStore()
-const { scaleType: storeScaleType } = storeToRefs(imageStore)
-const { setScaleType } = imageStore
+const { 
+  scaleType: storeScaleType,
+  isCalibrating,
+  calibrateRealLength,
+} = storeToRefs(imageStore)
+const {
+   setScaleType,
+   resetCalibrate,
+   toggleCalibrate 
+  } = imageStore
 
-const scaleType = ref<'macro' | 'micro'>('macro')
+// 本地 ref 用于双向绑定，双向同步 store
+const localScaleType = ref<'macro' | 'micro'>(storeScaleType.value)
 
-// 同步标尺类型
-scaleType.value = storeScaleType.value
-watch(scaleType, (newType) => {
+// 同步标尺类型: 本地 -> store
+watch(localScaleType, (newType) => {
   setScaleType(newType)
+})
+//  store -> 本地
+watch(storeScaleType, (newType) => {
+  localScaleType.value = newType
 })
 </script>
 

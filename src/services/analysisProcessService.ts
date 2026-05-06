@@ -3,7 +3,7 @@ import cv from '@techstark/opencv-js'
 import { ElMessage } from 'element-plus'
 import { markRaw, type Ref } from 'vue'
 import { useAnalysisStore } from '@/stores/analysisStore'
-// 【修复】从 analysisStore 引入正确的辅助函数
+// 从 analysisStore 引入正确的辅助函数
 import { copyMat, deleteMatSafe } from '@/utils/opencv/core'
 
 //类型和函数分开导入
@@ -151,11 +151,13 @@ export const executeFullAnalysis = async (
     ElMessage.info('开始分析，请稍候...')
     const { src, width, height } = await loadImageToMat(imageDataUrl)
     let results: HoleResults | CrackResults | SizeResults | null = null
+    let finalBinaryMask: cv.Mat | null = null
 
     switch (mode) {
       case 'hole': {
         // 孔洞分析结果计算
         const binaryMask = holeSegmentation(src, threshold as HoleThreshold, region)
+        finalBinaryMask = binaryMask.clone() // 保存用于悬停检测
         const contours = new cv.MatVector()
         const hierarchy = new cv.Mat()
         cv.findContours(binaryMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
@@ -204,6 +206,7 @@ export const executeFullAnalysis = async (
       case 'crack': {
         // 裂缝分析结果计算
         const binaryMask = crackSegmentation(src, threshold as CrackThreshold, region)
+        finalBinaryMask = binaryMask.clone() // 保存用于悬停检测
         const contours = new cv.MatVector()
         const hierarchy = new cv.Mat()
         // 1. 查找裂缝轮廓
@@ -274,8 +277,7 @@ export const executeFullAnalysis = async (
       case 'size': {
         // 粒度分析结果计算
         const { mask: binaryMask, rockMask, contours, hierarchy } = sizeSegmentation(src, threshold as SizeThreshold, region)
-        const pixelToMm = 0.1 // 后续对接标尺设置
-
+        finalBinaryMask = binaryMask.clone() // 保存用于悬停检测
         // 统计参数初始化
         let totalParticleCount = 0 // 总颗粒区域数
         let totalParticleArea = 0 // 总颗粒面积（平方毫米）
@@ -350,8 +352,41 @@ export const executeFullAnalysis = async (
       }
     }
 
+    // 更新 Store 中的二值蒙版（用于悬停检测）
+    if (finalBinaryMask && results) {
+      const analysisStore = useAnalysisStore()
+      
+      // 创建全图尺寸的二值蒙版
+      const fullBinaryMask = new cv.Mat(height, width, cv.CV_8UC1, new cv.Scalar(0))
+      if (region.width > 0 && region.height > 0) {
+        const rect = new cv.Rect(
+          Math.max(0, region.x),
+          Math.max(0, region.y),
+          Math.min(width - region.x, region.width),
+          Math.min(height - region.y, region.height)
+        )
+        const fullRoi = fullBinaryMask.roi(rect)
+        finalBinaryMask.copyTo(fullRoi)
+        fullRoi.delete()
+      } else {
+        finalBinaryMask.copyTo(fullBinaryMask)
+      }
+
+      // 更新 Store 中的蒙版
+      const oldBinaryMask = analysisStore.binaryMaskMat
+      const newBinaryMask = markRaw(copyMat(fullBinaryMask))
+      analysisStore.binaryMaskMat = newBinaryMask
+      
+      // 释放旧蒙版
+      deleteMatSafe(oldBinaryMask)
+      fullBinaryMask.delete()
+    }
+
     // 释放原图内存
     src.delete()
+    if (finalBinaryMask) {
+      finalBinaryMask.delete()
+    }
     ElMessage.success('分析完成！')
     return results
   } catch (error: any) {

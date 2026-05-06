@@ -8,6 +8,27 @@
 
         <!-- 图片显示区域 -->
         <div class="image-container" v-else>
+            <!-- Tooltip -->
+            <Transition name="tooltip">
+              <div
+                v-if="tooltipVisible && hoveredHoleInfo"
+                class="hole-tooltip"
+                :style="{ left: tooltipX + 'px', top: tooltipY + 'px' }"
+              >
+                <div class="tooltip-title">{{ tooltipTitle }} #{{ hoveredHoleInfo.index }}</div>
+                <div class="tooltip-content">
+                  <div class="tooltip-item">
+                    <span class="tooltip-label">直径:</span>
+                    <span class="tooltip-value">{{ hoveredHoleInfo.diameter.toFixed(3) }} {{ currentUnit }}</span>
+                  </div>
+                  <div class="tooltip-item">
+                    <span class="tooltip-label">面积:</span>
+                    <span class="tooltip-value">{{ hoveredHoleInfo.area.toFixed(4) }} {{ currentUnit }}²</span>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+            
             <!-- 三层 Canvas 容器 -->
             <div class="canvas-wrapper" ref="containerRef">
                 <!-- 底层 Canvas：显示图片 -->
@@ -17,7 +38,7 @@
                     @mousedown="handleMouseDown"
                     @mousemove="handleMouseMove"
                     @mouseup="handleMouseUp"
-                    @mouseleave="handleMouseUp"
+                    @mouseleave="handleMouseLeave"
                     @wheel.prevent="handleImageZoom"
                 />
                 <!-- 中层 Canvas：显示蓝色分析区域蒙版 -->
@@ -51,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
+import { watch, ref, computed } from 'vue'
 import { PictureFilled, Check, Loading } from '@element-plus/icons-vue';
 import { useImageStore } from '@/stores/imageStore';
 import { useAnalysisStore } from '@/stores/analysisStore'
@@ -59,13 +80,60 @@ import { storeToRefs } from 'pinia';
 import {useImageCanvasCore} from '@/composables/useImageCanvasCore'
 import { useRegionSelection } from '@/composables/useRegionSelection';
 import { useCalibrate } from '@/composables/useCalibrate';
+import { detectHoveredHole } from '@/utils/opencv/core';
 // ==========================================
 // 1. Store 引入
 // ==========================================
 const imageStore = useImageStore();
 const analysisStore = useAnalysisStore()
 
-const {currentImagePath,isImageLoaded,isImageProcessed,isProcessing,isCalibrating,calibrateStartPoint,calibrateEndPoint} = storeToRefs(imageStore)
+const {
+  currentImagePath,
+  isImageLoaded,
+  isImageProcessed,
+  isProcessing,
+  isCalibrating,
+  calibrateStartPoint,
+  calibrateEndPoint,
+  scaleType,
+  pixelToMm
+ } = storeToRefs(imageStore)
+const {
+  currentMode,
+  analysisRegion,
+  regionMode,
+  hoveredHoleInfo,
+  binaryMaskMat
+} = storeToRefs(analysisStore)
+const {
+  clearHoveredHole,
+  setHoveredHoleInfo
+} = analysisStore
+// ==========================================
+// 2. Tooltip 状态
+// ==========================================
+const tooltipVisible = ref(false)
+const tooltipX = ref(0)
+const tooltipY = ref(0)
+const currentUnit = computed(() => {
+  return scaleType.value === 'macro' ? 'mm' : 'μm'
+})
+const unitScale = computed(() => {
+  return scaleType.value === 'macro' ? 1 : 1000
+})
+const tooltipTitle=computed(()=>{
+  const mode=currentMode.value
+  switch(mode){
+    case 'hole':
+      return '孔洞'
+    case 'crack':
+      return '裂缝'
+    case 'size':
+      return '颗粒'
+    default:
+      return '未知'
+  }
+})
 // ==========================================
 // 2.引入拆分后的核心逻辑
 // ==========================================
@@ -76,7 +144,6 @@ const {
     targetMaskCanvasRef,
     imageDrawParams,
     scale,
-    drawImage,
     drawTargetMask,
     canvasToImageCoords,
     imageToCanvasCoords,
@@ -106,7 +173,7 @@ const {
 // 5. 统一的鼠标事件分发
 // ==========================================
 const handleMouseDown = (e: MouseEvent) => {
-  // 【优化】只获取一次 rect
+  // 只获取一次 rect
   const rect = imageCanvasRef.value!.getBoundingClientRect()
   const canvasX = e.clientX - rect.left
   const canvasY = e.clientY - rect.top
@@ -132,6 +199,9 @@ const handleMouseMove = (e: MouseEvent) => {
   }
 
   handleRegionMouseMove(e, imageCanvasRef.value!)
+  
+  // 检测鼠标悬停的孔洞
+  detectHoveredHoleOnCanvas(canvasX, canvasY, rect)
 }
 
 const handleMouseUp = () => {
@@ -143,14 +213,67 @@ const handleMouseUp = () => {
   handleRegionMouseUp()
 }
 
+const handleMouseLeave = () => {
+  // 鼠标离开时清除悬停状态
+  clearHoveredHole()
+  tooltipVisible.value = false
+}
+
+// 检测鼠标悬停的孔洞
+const detectHoveredHoleOnCanvas = (canvasX: number, canvasY: number, rect: DOMRect) => {
+  // 获取二值蒙版
+  const binaryMask = analysisStore.binaryMaskMat
+  if (!binaryMask || binaryMask.empty()) {
+    clearHoveredHole()
+    tooltipVisible.value = false
+    return
+  }
+
+  // 转换坐标：Canvas坐标 -> 图片坐标
+  const imageCoords = canvasToImageCoords(canvasX, canvasY)
+  
+  // 检查坐标是否有效
+  if (isNaN(imageCoords.x) || isNaN(imageCoords.y) || imageCoords.x < 0 || imageCoords.y < 0) {
+    clearHoveredHole()
+    tooltipVisible.value = false
+    return
+  }
+
+  // 检测悬停的孔洞
+  const holeInfo = detectHoveredHole(
+    binaryMask,
+    imageCoords.x,
+    imageCoords.y,
+    analysisRegion.value,
+    pixelToMm.value
+  )
+
+  if (holeInfo) {
+    // 更新悬停信息
+    setHoveredHoleInfo({
+      ...holeInfo,
+      diameter: holeInfo.diameter * unitScale.value,
+      area: holeInfo.area * unitScale.value * unitScale.value
+    })
+    
+    // 更新Tooltip位置
+    tooltipX.value = rect.left + canvasX + 15
+    tooltipY.value = rect.top + canvasY - 10
+    tooltipVisible.value = true
+  } else {
+    clearHoveredHole()
+    tooltipVisible.value = false
+  }
+}
+
 // ==========================================
 // 6. 监听：选框变化时重绘
 // ==========================================
-watch(() => analysisStore.analysisRegion, () => {
+watch(() => analysisRegion.value, () => {
   drawRegionMask()
 }, { deep: true })
 
-watch(() => analysisStore.regionMode, () => {
+watch(() => regionMode.value, () => {
   drawRegionMask()
 })
 
@@ -178,6 +301,61 @@ watch(()=>imageDrawParams.value,()=>{
     justify-content: center;
     position: relative;
     overflow: hidden;
+}
+
+/* Tooltip 样式 */
+.hole-tooltip {
+  position: fixed;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px 12px;
+  z-index: 1000;
+  min-width: 140px;
+  pointer-events: none;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  color: #409eff;
+  font-size: 13px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.tooltip-label {
+  color: #606266;
+}
+
+.tooltip-value {
+  color: #303133;
+  font-weight: 500;
+}
+
+/* Tooltip 过渡动画 */
+.tooltip-enter-active,
+.tooltip-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tooltip-enter-from,
+.tooltip-leave-to {
+  opacity: 0;
+  transform: translateY(-5px);
 }
 
 .empty-state {

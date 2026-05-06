@@ -1,21 +1,6 @@
 import ExcelJS from 'exceljs';
 import {saveAs} from 'file-saver';
-import type {HoleResults,CrackResults,SizeResults} from '@/stores/analysisStore';
-import type { st } from 'vue-router/dist/index-BzEKChPW.js';
-/**
- * 岩心基础信息（可后续扩展为用户输入）
- */
-interface CoreBasicInfo{
-    wellNo:string   //井号
-    wellDepth:string  //井深
-    horizon:string    //层位
-    lithology:string  //岩性
-    sampleDate:string //取样日期
-    block?:string //区块
-    structure?:string //构造
-    sampleNo?:string //样品编号
-
-}
+import type {HoleResults,CrackResults,SizeResults,CoreBasicInfo} from '@/stores/analysisStore';
 /**
  * 分析参数
  */

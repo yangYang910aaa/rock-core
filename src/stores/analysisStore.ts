@@ -128,6 +128,20 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const crackResults=ref<CrackResults>({totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0})
     const sizeResults=ref<SizeResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0})
 
+   // ==========================================
+   // 鼠标悬停状态
+   // ==========================================
+    // 悬停的孔洞索引（从1开始，null表示没有悬停）
+    const hoveredHoleIndex = ref<number | null>(null)
+    // 悬停的孔洞信息（用于Tooltip显示）
+    const hoveredHoleInfo = ref<{
+      index: number
+      diameter: number
+      area: number
+      centerX: number
+      centerY: number
+    } | null>(null)
+
     // ==========================================
     // 基础操作
     // ==========================================
@@ -167,6 +181,25 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const setCoreBasicInfo=(info:CoreBasicInfo)=>{
         coreBasicInfo.value={...info}
     }
+    
+    // ==========================================
+    // 鼠标悬停操作
+    // ==========================================
+    const setHoveredHoleInfo = (info: {
+      index: number
+      diameter: number
+      area: number
+      centerX: number
+      centerY: number
+    } | null) => {
+      hoveredHoleInfo.value = info
+      hoveredHoleIndex.value = info ? info.index : null
+    }
+    const clearHoveredHole = () => {
+      hoveredHoleInfo.value = null
+      hoveredHoleIndex.value = null
+    }
+    
     const resetAll=()=>{
         currentMode.value='hole'
         regionMode.value='full'
@@ -419,7 +452,10 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     // 结果
     holeResults,
     crackResults,
-    sizeResults,  
+    sizeResults,
+    // 悬停状态
+    hoveredHoleIndex,
+    hoveredHoleInfo,
     // 方法
     setMode,
     setRegionMode,
@@ -429,6 +465,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     resetThresholds,
     resetCoreBasicInfo,
     setCoreBasicInfo,
+    setHoveredHoleInfo,
+    clearHoveredHole,
     resetAll,
     clearTargetMask,
     saveMaskToHistory,

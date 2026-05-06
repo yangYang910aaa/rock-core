@@ -1,8 +1,9 @@
-import { ref, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { ref, nextTick, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useImageStore } from '@/stores/imageStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { storeToRefs } from 'pinia'
 import cv from '@techstark/opencv-js'
+import { maskToVisualWithHighlight } from '@/utils/opencv/core'
 
 /**
  * 核心画布逻辑
@@ -15,7 +16,7 @@ export const useImageCanvasCore = () => {
   const imageStore = useImageStore()
   const analysisStore = useAnalysisStore()
   const { processedImageDataUrl } = storeToRefs(imageStore)
-  const { targetMaskMat } = storeToRefs(analysisStore)
+  const { targetMaskMat, hoveredHoleIndex, binaryMaskMat, analysisRegion, sourceImageSize } = storeToRefs(analysisStore)
 
   // ==========================================
   // 2. DOM 引用
@@ -137,9 +138,28 @@ export const useImageCanvasCore = () => {
     const ctx = targetMaskCanvasRef.value.getContext('2d')!
     //先清空画布
     ctx.clearRect(0, 0, targetMaskCanvasRef.value.width, targetMaskCanvasRef.value.height)
+    
+    const { drawX, drawY, drawWidth, drawHeight } = imageDrawParams.value
+    
+    // 如果有悬停的孔洞，生成带高亮效果的蒙版
+    if (hoveredHoleIndex.value !== null && binaryMaskMat.value && !binaryMaskMat.value.empty()) {
+      const visualMask = maskToVisualWithHighlight(
+        binaryMaskMat.value,
+        hoveredHoleIndex.value,
+        sourceImageSize.value,
+        analysisRegion.value
+      )
+      
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = visualMask.cols
+      tempCanvas.height = visualMask.rows
+      cv.imshow(tempCanvas, visualMask)
+      
+      ctx.drawImage(tempCanvas, drawX, drawY, drawWidth, drawHeight)
+      visualMask.delete()
+    }
     //绘制OpenCV蒙版
-    if (targetMaskMat.value && !targetMaskMat.value.empty()) {
-      const { drawX, drawY, drawWidth, drawHeight } = imageDrawParams.value
+    else if (targetMaskMat.value && !targetMaskMat.value.empty()) {
       //创建临时Canvas绘制OpenCV蒙版
       const tempCanvas = document.createElement('canvas')
       tempCanvas.width = targetMaskMat.value.cols
@@ -209,6 +229,10 @@ export const useImageCanvasCore = () => {
   })
   // 监听缩放比例变化，重新绘制目标蒙版
   watch(scale, () => {
+    drawTargetMask()
+  })
+  // 监听悬停状态变化，重新绘制目标蒙版（带高亮）
+  watch(hoveredHoleIndex, () => {
     drawTargetMask()
   })
 
