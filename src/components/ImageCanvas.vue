@@ -50,6 +50,7 @@
                 <canvas
                     ref="targetMaskCanvasRef"
                     class="mask-canvas target-mask"
+                    v-show="showMaskOverlay"
                 />
             </div>
 
@@ -103,7 +104,8 @@ const {
   analysisRegion,
   regionMode,
   hoveredHoleInfo,
-  binaryMaskMat
+  binaryMaskMat,
+  showMaskOverlay
 } = storeToRefs(analysisStore)
 const {
   clearHoveredHole,

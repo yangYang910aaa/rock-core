@@ -91,6 +91,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const regionMode=ref<RegionMode>('full')
     const isSelectingRegion=ref<boolean>(false)
     const isAnalyzing=ref<boolean>(false)
+    const showMaskOverlay=ref<boolean>(true)
 
    // ==========================================
    // 岩心基础信息状态
@@ -205,6 +206,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         regionMode.value='full'
         isSelectingRegion.value=false
         isAnalyzing.value=false
+        showMaskOverlay.value=true
         resetAnalysisRegion()
         resetResults()
         resetThresholds()
@@ -468,6 +470,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     setHoveredHoleInfo,
     clearHoveredHole,
     resetAll,
+    showMaskOverlay,
     clearTargetMask,
     saveMaskToHistory,
     undoMask,

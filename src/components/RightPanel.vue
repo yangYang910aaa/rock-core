@@ -18,6 +18,10 @@
       </el-dropdown>
       <el-button type="warning" block class="panel-btn" @click="handleReset"><el-icon><Refresh /></el-icon>重置分析</el-button>
       <el-button type="primary" block class="panel-btn" @click="handleStartAnalysis"><el-icon><Search /></el-icon>开始分析</el-button>
+      <div class="mask-toggle-row">
+        <el-switch v-model="analysisStore.showMaskOverlay" size="small" />
+        <span class="mask-toggle-label">允许显示蒙版</span>
+      </div>
     </div>
 
     <!-- 可滚动的参数&结果区域 -->
@@ -467,6 +471,20 @@ const handleExportReport=async(format:'excel'|'pdf')=>{
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+
+/* 蒙版叠加开关 */
+.mask-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mask-toggle-label {
+  font-size: 13px;
+  color: #606266;
 }
 /*内容区整体加了充足的右内边距，给右侧留足留白 */
 .panel-content {
