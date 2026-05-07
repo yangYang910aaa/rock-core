@@ -324,6 +324,113 @@ export const generateReportHtml = (
 }
 
 /**
+ * 生成Excel风格预览HTML（格子表格样式）
+ */
+export const generateExcelPreviewHtml = (
+  basicInfo: CoreBasicInfo,
+  params: AnalysisParams,
+  results: HoleResults | CrackResults | SizeResults
+): string => {
+  let modeName = ''
+  let modeText = ''
+  const unit = params.scaleType === 'macro' ? 'mm' : 'μm'
+  let resultRows = ''
+
+  if (params.mode === 'hole') {
+    modeName = '孔洞'; modeText = '孔洞分析'
+    const res = results as HoleResults
+    resultRows = `
+      <tr><td>孔洞总数</td><td>${res.totalCount}</td></tr>
+      <tr><td>孔洞总面积</td><td>${res.totalArea.toFixed(4)} ${unit}²</td></tr>
+      <tr><td>平均孔径</td><td>${res.avgDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>最大孔径</td><td>${res.maxDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>最小孔径</td><td>${res.minDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>`
+  } else if (params.mode === 'crack') {
+    modeName = '裂缝'; modeText = '裂缝分析'
+    const res = results as CrackResults
+    resultRows = `
+      <tr><td>裂缝条数</td><td>${res.totalCount}</td></tr>
+      <tr><td>裂缝总长度</td><td>${res.totalLength.toFixed(4)} ${unit}</td></tr>
+      <tr><td>平均宽度</td><td>${res.avgWidth.toFixed(4)} ${unit}</td></tr>
+      <tr><td>面密度</td><td>${res.areaDensity.toFixed(4)} 条/${unit}²</td></tr>
+      <tr><td>线密度</td><td>${res.lineDensity.toFixed(4)} 条/${unit}</td></tr>
+      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>`
+  } else {
+    modeName = '粒度'; modeText = '粒度分析'
+    const res = results as SizeResults
+    resultRows = `
+      <tr><td>颗粒总数</td><td>${res.totalParticleCount}</td></tr>
+      <tr><td>平均粒径</td><td>${res.avgParticleSize.toFixed(4)} ${unit}</td></tr>
+      <tr><td>粗颗粒占比</td><td>${res.coarseParticleRatio.toFixed(2)} %</td></tr>
+      <tr><td>细颗粒占比</td><td>${res.fineParticleRatio.toFixed(2)} %</td></tr>
+      <tr><td>颗粒均匀度</td><td>${res.particleUniformity.toFixed(4)}</td></tr>
+      <tr><td>岩石颗粒占比</td><td>${res.rockParticleRate.toFixed(2)} %</td></tr>`
+  }
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>Excel预览</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Microsoft YaHei', 'SimSun', sans-serif;
+    padding: 24px; font-size: 13px; background: #f0f2f5;
+  }
+  .excel-sheet {
+    max-width: 700px; margin: 0 auto; background: #fff;
+    border: 1px solid #c0c4cc; border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;
+  }
+  .title-bar {
+    background: #409EFF; color: #fff; text-align: center;
+    font-size: 18px; font-weight: bold; padding: 14px 0;
+  }
+  .section-header {
+    background: #e8f4fd; font-weight: bold; font-size: 14px;
+    padding: 8px 16px; border-bottom: 1px solid #dcdfe6;
+    border-top: 2px solid #409EFF;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  td {
+    padding: 8px 16px; border-bottom: 1px solid #ebeef5;
+    vertical-align: middle;
+  }
+  td:first-child {
+    width: 35%; background: #fafafa; font-weight: 500;
+    border-right: 1px solid #ebeef5; color: #606266;
+  }
+  td:last-child { color: #303133; }
+  .footer-bar {
+    text-align: center; font-size: 11px; color: #909399;
+    padding: 12px 0; background: #fafafa; border-top: 1px solid #ebeef5;
+  }
+</style></head>
+<body>
+  <div class="excel-sheet">
+    <div class="title-bar">岩心${modeName}分析报告</div>
+    <div class="section-header">岩心基础信息</div>
+    <table>
+      <tr><td>井号</td><td>${basicInfo.wellNo}</td></tr>
+      <tr><td>井深</td><td>${basicInfo.wellDepth}</td></tr>
+      <tr><td>层位</td><td>${basicInfo.horizon}</td></tr>
+      <tr><td>岩性</td><td>${basicInfo.lithology}</td></tr>
+      <tr><td>取样日期</td><td>${basicInfo.sampleDate}</td></tr>
+    </table>
+    <div class="section-header">分析参数</div>
+    <table>
+      <tr><td>分析模式</td><td>${modeText}</td></tr>
+      <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
+      <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
+    </table>
+    <div class="section-header">统计结果</div>
+    <table>${resultRows}</table>
+    <div class="footer-bar">Excel 报告预览 — ${new Date().toLocaleString()}</div>
+  </div>
+</body></html>`
+}
+
+/**
  * 生成PDF报告
  */
 export const exportToPDF = async (

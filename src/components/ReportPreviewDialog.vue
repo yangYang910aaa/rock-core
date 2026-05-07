@@ -38,7 +38,7 @@
 import { ref, computed } from 'vue'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
-import { generateReportHtml } from '@/utils/reportGenerator'
+import { generateReportHtml, generateExcelPreviewHtml } from '@/utils/reportGenerator'
 import { useReportExport } from '@/composables/useReportExport'
 import { ElMessage } from 'element-plus'
 
@@ -93,7 +93,11 @@ const generatePreview = () => {
     threshold
   }
 
-  previewHtml.value = generateReportHtml(basicInfo, params, results)
+  if (selectedFormat.value === 'excel') {
+    previewHtml.value = generateExcelPreviewHtml(basicInfo, params, results)
+  } else {
+    previewHtml.value = generateReportHtml(basicInfo, params, results)
+  }
 }
 
 const handleExport = () => {
