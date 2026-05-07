@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 
 // 解决ESModule下__dirname兼容问题
 const __filename = fileURLToPath(import.meta.url)
@@ -66,12 +67,15 @@ function createWindow() {
     /**
      * 生成PDF报告事件
      */
-    ipcMain.handle('generate-pdf', async (event, htmlContent: string) => {
+    ipcMain.handle('generate-pdf', async (_event, htmlContent: string) => {
       if (!mainWindow) return null
       let pdfWindow: BrowserWindow | null = null
+      const tmpPath = path.join(os.tmpdir(), `rock-core-report-${Date.now()}.html`)
       try {
-        
-        // 1. 创建隐藏的临时窗口
+        // 1. 写入临时HTML文件，避免数据URL长度限制和编码问题
+        fs.writeFileSync(tmpPath, htmlContent, 'utf-8')
+
+        // 2. 创建隐藏的临时窗口
         pdfWindow = new BrowserWindow({
           show: false,
           webPreferences: {
@@ -81,13 +85,10 @@ function createWindow() {
           }
         })
 
-        // 2. 生成data URL
-        const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`
+        // 3. 加载临时文件
+        await pdfWindow.loadFile(tmpPath)
 
-        // 3. 直接await加载完成，data URL无外部依赖，加载完就可以直接生成PDF
-        await pdfWindow.loadURL(dataUrl)
-
-        // 4. 生成PDF（边距单位：英寸，20mm≈0.8英寸）
+        // 4. 生成PDF
         const pdfBuffer = await pdfWindow.webContents.printToPDF({
           printBackground: true,
           pageSize: 'A4',
@@ -99,17 +100,17 @@ function createWindow() {
           }
         })
 
-        // 5. 转Base64返回
-        const base64 = pdfBuffer.toString('base64')
-        return base64
+        return pdfBuffer.toString('base64')
 
       } catch (error) {
+        console.error('PDF生成失败:', error)
         return null
       } finally {
-        // 【关键】无论成功失败，必须关闭临时窗口
         if (pdfWindow && !pdfWindow.isDestroyed()) {
           pdfWindow.close()
         }
+        // 清理临时文件
+        try { fs.unlinkSync(tmpPath) } catch (_) {}
       }
     })
     // 加载应用

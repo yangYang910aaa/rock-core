@@ -77,9 +77,9 @@ export const useReportExport = () => {
         await exportToPDF(basicInfo, params, results)
         ElMessage.success('PDF报告导出成功')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('导出报告失败:', error)
-      ElMessage.error('导出报告失败,请重试')
+      ElMessage.error(error?.message || '导出报告失败,请重试')
     }
   }
 

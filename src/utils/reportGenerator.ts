@@ -332,6 +332,11 @@ export const exportToPDF = async (
   results: HoleResults | CrackResults | SizeResults
 ) => {
   try {
+    let modeName = ''
+    if (params.mode === 'hole') modeName = '孔洞'
+    else if (params.mode === 'crack') modeName = '裂缝'
+    else modeName = '粒度'
+
     const reportHtml = generateReportHtml(basicInfo, params, results)
 
     //4. 调用主进程,生成PDF事件
@@ -341,11 +346,16 @@ export const exportToPDF = async (
       throw new Error('无法获取ipcRenderer,请检查Electron配置')
     }
 
+    console.log('[PDF] 开始调用主进程 generate-pdf, HTML长度:', reportHtml.length)
+
     const base64Pdf = await ipcRenderer.invoke('generate-pdf', reportHtml)
 
     if (!base64Pdf) {
+      console.error('[PDF] 主进程返回空结果')
       throw new Error('主进程生成PDF失败,返回空结果')
     }
+
+    console.log('[PDF] 收到PDF数据, 长度:', base64Pdf.length)
 
     //5. 把Base64 转成 Blob 并下载
     const byteCharacters = atob(base64Pdf)
