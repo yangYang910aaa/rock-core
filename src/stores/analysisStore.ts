@@ -5,9 +5,9 @@ import { ElMessage } from 'element-plus'
 import { maskToVisual } from '@/utils/opencv'
 import { copyMat, deleteMatSafe } from '@/utils/opencv/core'
 
-// ==========================================
+// ----
 //  类型定义
-// ==========================================
+// ----
 export type AnalysisMode='hole'|'crack'|'size'
 export type RegionMode='full'|'rect'
 export interface AnalysisRegion{
@@ -69,9 +69,9 @@ export interface SizeResults{
     rockParticleRate:number
 }
 
-// ==========================================
+// ----
 // 岩心基础信息类型定义
-// ==========================================
+// ----
 export interface CoreBasicInfo{
     wellNo:string       //井号
     wellDepth:string    //井深
@@ -80,13 +80,13 @@ export interface CoreBasicInfo{
     sampleDate:string   //取样日期
 }
 
-// ==========================================
+// ----
 // Store 定义
-// ==========================================
+// ----
 export const useAnalysisStore=defineStore('analysis',()=>{
-   // ==========================================
+   // ----
    // 基础状态
-   // ==========================================
+   // ----
     const currentMode=ref<AnalysisMode>('hole')
     const regionMode=ref<RegionMode>('full')
     const isSelectingRegion=ref<boolean>(false)
@@ -94,9 +94,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const showMaskOverlay=ref<boolean>(true)
     const reportPreviewVisible=ref<boolean>(false)
 
-   // ==========================================
+   // ----
    // 岩心基础信息状态
-   // ==========================================
+   // ----
     const coreBasicInfo=ref<CoreBasicInfo>({
         wellNo:'',
         wellDepth:'',
@@ -105,9 +105,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         sampleDate:new Date().toISOString().slice(0,10) // 默认当前日期
     })
 
-   // ==========================================
+   // ----
    // 蒙版核心状态（彻底拆分二值/可视化蒙版）
-   // ==========================================
+   // ----
     const analysisRegion=ref<AnalysisRegion>({x:0,y:0,width:0,height:0})
     // 可视化RGBA蒙版（仅用于画布显示，不参与计算）
     const targetMaskMat = shallowRef<cv.Mat | null>(null)
@@ -116,23 +116,23 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     // 原图全图尺寸（用于生成全图大小的蒙版，确保坐标匹配）
     const sourceImageSize = ref<{ width: number, height: number }>({ width: 0, height: 0 })
 
-   // ==========================================
+   // ----
    // 阈值状态
-   // ==========================================
+   // ----
     const holeThreshold=ref<HoleThreshold>({minThreshold:0,maxThreshold:128})
     const crackThreshold=ref<CrackThreshold>({minWidth:0.1,maxWidth:5.0,minLength:10,cannyLow:50,cannyHigh:150})
     const sizeThreshold=ref<SizeThreshold>({rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50})
 
-   // ==========================================
+   // ----
    // 分析结果状态
-   // ==========================================
+   // ----
     const holeResults=ref<HoleResults>({totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0})
     const crackResults=ref<CrackResults>({totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0})
     const sizeResults=ref<SizeResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0})
 
-   // ==========================================
+   // ----
    // 鼠标悬停状态
-   // ==========================================
+   // ----
     // 悬停的孔洞索引（从1开始，null表示没有悬停）
     const hoveredHoleIndex = ref<number | null>(null)
     // 悬停的孔洞信息（用于Tooltip显示）
@@ -144,9 +144,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
       centerY: number
     } | null>(null)
 
-    // ==========================================
+    // ----
     // 基础操作
-    // ==========================================
+    // ----
     const setMode=(mode:AnalysisMode)=>{
         currentMode.value=mode
         resetResults()
@@ -184,9 +184,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         coreBasicInfo.value={...info}
     }
     
-    // ==========================================
+    // ----
     // 鼠标悬停操作
-    // ==========================================
+    // ----
     const setHoveredHoleInfo = (info: {
       index: number
       diameter: number
@@ -215,16 +215,16 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         disposeMasks()
     }
 
-    // ==========================================
+    // ----
     // 蒙版操作历史（用于撤销/还原）
-    // ==========================================
+    // ----
     const maskHistory = ref<cv.Mat[]>([])
     const historyIndex = ref<number>(-1)
     const MAX_HISTORY_LENGTH = 20
 
-    // ==========================================
+    // ----
     // 蒙版内存管理辅助函数
-    // ==========================================
+    // ----
     
     /// 保持 historyIndex 在有效范围内
     const clampHistoryIndex = () => {
@@ -288,9 +288,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         historyIndex.value = -1
     }
 
-    // ==========================================
+    // ----
     // 蒙版操作相关方法
-    // ==========================================
+    // ----
     const saveMaskToHistory = () => {
       if (!binaryMaskMat.value || binaryMaskMat.value.empty()) return
       clampHistoryIndex()
@@ -432,9 +432,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
       ElMessage.success('已重置到初始状态')
     }
 
-    // ==========================================
+    // ----
     // 7. 暴露给组件的状态和方法
-    // ==========================================
+    // ----
   return {
     // 基础状态
     currentMode,

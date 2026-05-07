@@ -1,3 +1,4 @@
+// Vue 应用入口：注册 Pinia / Router / Element Plus 及全部图标
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 

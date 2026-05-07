@@ -23,6 +23,7 @@
 </template>
 
 <script setup lang="ts">
+// 根布局：TitleBar(顶) + LeftSidebar | ImageCanvas | RightPanel(三栏) + 根级弹窗
 import TitleBar from '@/components/TitleBar.vue'
 import ImageCanvas from '@/components/ImageCanvas.vue'
 import LeftSidebar from '@/components/LeftSidebar.vue'

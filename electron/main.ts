@@ -4,14 +4,12 @@ import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
 
-// 解决ESModule下__dirname兼容问题
+// ESModule 下 __dirname 兼容
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// 全局窗口实例，防止GC回收
+// 主窗口实例
 let mainWindow: BrowserWindow | null = null
-
-// 创建窗口函数
 function createWindow() {
   try {
     // 创建浏览器窗口
@@ -27,7 +25,7 @@ function createWindow() {
       }
     })
 
-    // 窗口控制事件
+    // ---- 窗口控制 IPC ----
     ipcMain.on('window-min', () => mainWindow?.minimize())
     ipcMain.on('window-max', () => {
       if (!mainWindow) return
@@ -37,7 +35,7 @@ function createWindow() {
     ipcMain.on('window-reload', () => mainWindow?.webContents.reload())
     ipcMain.on('window-devtools', () => mainWindow?.webContents.toggleDevTools())
 
-    // 打开岩心图片事件
+    // ---- 文件对话框：打开岩心图片 ----
     ipcMain.handle('open-image-dialog', async () => {
       if (!mainWindow) return null
       const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {

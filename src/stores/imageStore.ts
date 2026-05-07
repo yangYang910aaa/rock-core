@@ -5,9 +5,9 @@ import { ElMessage } from 'element-plus'
 import { initOpenCV as initOpenCVUtil } from '@/utils/opencv'
 import { executeImageProcess } from '@/services/imageProcessService'
 
-// ==========================================
+// ----
 // 1. 类型定义
-// ==========================================
+// ----
 
 // 预处理操作类型
 export type PreprocessType =
@@ -30,13 +30,13 @@ export type BrightContrastParams = {
 // 标尺类型
 export type ScaleType='macro'|'micro'
 
-// ==========================================
+// ----
 // 2. Store 定义
-// ==========================================
+// ----
 export const useImageStore = defineStore('image', () => {
-  // ==========================================
+  // ----
   // 2.1 基础状态
-  // ==========================================
+  // ----
   const currentImagePath = ref<string>('') // 当前打开的图片文件路径
   const currentImageDataUrl = ref<string>('') // 当前图片的 DataURL
   const isImageLoaded = ref<boolean>(false) // 图片是否已加载
@@ -44,15 +44,15 @@ export const useImageStore = defineStore('image', () => {
   const isImageProcessed = ref<boolean>(false) // 图片是否已处理
 
 
-  // ==========================================
+  // ----
   // 2.2 OpenCV 相关状态
-  // ==========================================
+  // ----
   const cvReady = ref<boolean>(false) // OpenCV.js 是否加载完成
   const isProcessing = ref<boolean>(false) // 是否正在处理
 
-  // ==========================================
+  // ----
   // 2.3 预处理参数状态
-  // ==========================================
+  // ----
   const bcParams = ref<BrightContrastParams>({
     alpha: 1.0,
     beta: 0
@@ -63,16 +63,16 @@ export const useImageStore = defineStore('image', () => {
   // 曲线调节系数
   const gammaValue=ref<number>(1.0)
 
-  // ==========================================
+  // ----
   // 2.3.1 预处理弹窗状态
-  // ==========================================
+  // ----
   const bcDialogVisible=ref<boolean>(false)
   const saturationDialogVisible=ref<boolean>(false)
   const gammaDialogVisible=ref<boolean>(false)
 
-  // ==========================================
+  // ----
   // 2.4 标尺相关状态
-  // ==========================================
+  // ----
   // 标尺类型：macro=宏观(mm)，micro=微观(μm)
   const scaleType = ref<ScaleType>('macro')
   // 像素转毫米系数：1像素对应多少毫米（默认0.1，后续可以支持用户手动输入）
@@ -83,9 +83,9 @@ export const useImageStore = defineStore('image', () => {
   const calibrateEndPoint=ref<{x:number,y:number}|null>(null) // 校准结束点
   const calibrateRealLength=ref<number>(10) // 校准线的真实长度,默认10mm
 
-  // ==========================================
+  // ----
   // 3. 基础状态操作
-  // ==========================================
+  // ----
 
   /**
    * 设置图片信息
@@ -108,9 +108,9 @@ export const useImageStore = defineStore('image', () => {
     isImageProcessed.value = true
   }
 
-  // ==========================================
+  // ----
   // 标尺相关方法
-  // ==========================================
+  // ----
   const setScaleType=(type:ScaleType)=>{
     scaleType.value=type
     ElMessage.success(`已切换到${type==='macro'?'宏观(mm)':'微观(μm)'}模式`)
@@ -235,9 +235,9 @@ export const useImageStore = defineStore('image', () => {
     gammaDialogVisible.value = true
   }
 
-  // ==========================================
+  // ----
   // 4. OpenCV 初始化
-  // ==========================================
+  // ----
   const initOpenCV = async () => {
     if (cvReady.value) return
     try {
@@ -249,9 +249,9 @@ export const useImageStore = defineStore('image', () => {
     }
   }
 
-  // ==========================================
+  // ----
   // 5. 核心：图像处理入口
-  // ==========================================
+  // ----
   const executeProcess = async (type: PreprocessType) => {
     // 前置校验
     if (!cvReady.value || !isImageLoaded.value || isProcessing.value) {
@@ -282,9 +282,9 @@ export const useImageStore = defineStore('image', () => {
     }
   }
 
-  // ==========================================
+  // ----
   // 6. 暴露给组件的状态和方法
-  // ==========================================
+  // ----
   return {
     // 基础状态
     currentImagePath,

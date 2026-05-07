@@ -33,10 +33,12 @@
 </template>
 
 <script setup lang="ts">
+// 图像预处理按钮面板：9 种操作，直接执行或打开参数弹窗
 import { useImageStore, type PreprocessType } from '@/stores/imageStore'
 
 const imageStore = useImageStore()
 
+// 非弹窗类预处理：色阶、灰度、滤波、锐化、边缘、底片 — 直接调用 store
 const handlePreprocess = (type: PreprocessType) => {
   imageStore.executeProcess(type)
 }

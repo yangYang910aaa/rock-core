@@ -1,4 +1,5 @@
-import { useAnalysisStore, type CrackResults, type HoleResults, type SizeResults } from '@/stores/analysisStore'
+// 报告导出逻辑（TitleBar 和 RightPanel 共用）
+import { useAnalysisStore } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { exportToExcel, exportToPDF } from '@/utils/reportGenerator'

@@ -1,45 +1,37 @@
-//本函数用来 封装图像处理业务逻辑（调用工具函数 + 处理异常 + 统一提示）
+// 图像预处理业务层：统一入口 → 调用 OpenCV 工具 → 统一提示
 import { ElMessage } from "element-plus";
 import cv from '@techstark/opencv-js'
 import type {PreprocessType} from '@/stores/imageStore'
 import {
   loadImageToMat,
   matToDataUrl,
-  grayscaleProcess,//灰度化
-  negativeEffectProcess,//底片检测
-  edgeDetectProcess,//边缘检测
-  filterSmoothProcess,//平滑处理
-  autoLevelsProcess,//自动色阶
-  sharpenProcess,//锐化
-  brightnessContrastProcess,//亮度/对比度调整
-  saturationProcess,//饱和度调节
-  gammaCorrectionProcess,//伽马校正调节
+  grayscaleProcess,
+  negativeEffectProcess,
+  edgeDetectProcess,
+  filterSmoothProcess,
+  autoLevelsProcess,
+  sharpenProcess,
+  brightnessContrastProcess,
+  saturationProcess,
+  gammaCorrectionProcess,
 } from '@/utils/opencv'
-//处理参数类型
+
 interface ProcessParams{
     imageDataUrl:string
-    bcParams:{
-        alpha:number
-        beta:number
-    }
+    bcParams:{ alpha:number; beta:number }
     saturationFactor:number
     gammaValue:number
 }
-/**
- * 统一图像处理业务入口
- * @param type 预处理类型
- * @param params 处理参数
- * @returns 处理后的图片 DataURL
- */
+
+/** 统一图像处理入口：加载图片 → 执行算法 → 返回 DataURL */
 export const executeImageProcess=async(type:PreprocessType,params:ProcessParams):Promise<string>=>{
     const {imageDataUrl,bcParams,saturationFactor,gammaValue}=params
     let src:cv.Mat|null =null
     let dst:cv.Mat|null =null
     try {
-        //1.加载图片为Mat
         const matResult=await loadImageToMat(imageDataUrl)
         src=matResult.src
-        //2.根据类型执行对应处理
+
         switch(type){
             case 'grayscale':
                 dst=grayscaleProcess(src)

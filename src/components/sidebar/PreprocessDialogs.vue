@@ -110,9 +110,12 @@
 </template>
 
 <script setup lang="ts">
+// 预处理参数弹窗：挂载在 App.vue 根层级，确保不被折叠面板隐藏
 import { useImageStore } from '@/stores/imageStore'
 
 const imageStore = useImageStore()
+
+// 三个确定按钮：执行对应处理 → 关闭弹窗
 
 const confirmBCAdjust = async () => {
   await imageStore.executeProcess('brightnessContrast')

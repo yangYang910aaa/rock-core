@@ -46,6 +46,7 @@ const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
 const { handleExportReport } = useReportExport()
 
+// 双向绑定弹窗显隐，读写 analysisStore.reportPreviewVisible
 const visible = computed({
   get: () => analysisStore.reportPreviewVisible,
   set: (v) => { analysisStore.reportPreviewVisible = v }

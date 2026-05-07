@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+// 标尺校准面板：选择宏观/微观 → 设定真实长度 → 在图片上画校准线
 import { ref, watch } from 'vue'
 import { useImageStore } from '@/stores/imageStore'
 import { storeToRefs } from 'pinia'
