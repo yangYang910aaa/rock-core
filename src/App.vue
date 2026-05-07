@@ -5,8 +5,9 @@
 
     <!-- 主内容区：三栏布局 -->
     <el-container class="main-container">
-      <!-- 图像预处理弹窗：提升到根层级，不受折叠面板影响 -->
+      <!-- 根层级弹窗：不受折叠面板影响 -->
       <PreprocessDialogs />
+      <ReportPreviewDialog />
       <!-- 左侧功能栏 -->
       <LeftSidebar />
       
@@ -27,6 +28,7 @@ import ImageCanvas from '@/components/ImageCanvas.vue'
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import RightPanel from '@/components/RightPanel.vue'
 import PreprocessDialogs from '@/components/sidebar/PreprocessDialogs.vue'
+import ReportPreviewDialog from '@/components/ReportPreviewDialog.vue'
 </script>
 
 <style scoped>

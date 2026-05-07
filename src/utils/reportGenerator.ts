@@ -209,6 +209,121 @@ export const exportToExcel = async (
 }
 
 /**
+ * 生成报告HTML内容（PDF和预览共用）
+ */
+export const generateReportHtml = (
+  basicInfo: CoreBasicInfo,
+  params: AnalysisParams,
+  results: HoleResults | CrackResults | SizeResults
+): string => {
+  let modeName = ''
+  let modeText = ''
+  const unit = params.scaleType === 'macro' ? 'mm' : 'μm'
+  let resultHtml = ''
+
+  if (params.mode === 'hole') {
+    modeName = '孔洞'
+    modeText = '孔洞分析'
+  } else if (params.mode === 'crack') {
+    modeName = '裂缝'
+    modeText = '裂缝分析'
+  } else {
+    modeName = '粒度'
+    modeText = '粒度分析'
+  }
+
+  if (params.mode === 'hole') {
+    const res = results as HoleResults
+    resultHtml = `
+      <tr><td>孔洞总数</td><td>${res.totalCount}</td></tr>
+      <tr><td>孔洞总面积</td><td>${res.totalArea.toFixed(4)} ${unit}²</td></tr>
+      <tr><td>平均孔径</td><td>${res.avgDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>最大孔径</td><td>${res.maxDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>最小孔径</td><td>${res.minDiameter.toFixed(4)} ${unit}</td></tr>
+      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
+      `
+  } else if (params.mode === 'crack') {
+    const res = results as CrackResults
+    resultHtml = `
+      <tr><td>裂缝条数</td><td>${res.totalCount}</td></tr>
+      <tr><td>裂缝总长度</td><td>${res.totalLength.toFixed(4)} ${unit}</td></tr>
+      <tr><td>平均宽度</td><td>${res.avgWidth.toFixed(4)} ${unit}</td></tr>
+      <tr><td>面密度</td><td>${res.areaDensity.toFixed(4)} 条/${unit}²</td></tr>
+      <tr><td>线密度</td><td>${res.lineDensity.toFixed(4)} 条/${unit}</td></tr>
+      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
+      `
+  } else {
+    const res = results as SizeResults
+    resultHtml = `
+      <tr><td>颗粒总数</td><td>${res.totalParticleCount}</td></tr>
+      <tr><td>平均粒径</td><td>${res.avgParticleSize.toFixed(4)} ${unit}</td></tr>
+      <tr><td>粗颗粒占比</td><td>${res.coarseParticleRatio.toFixed(2)} %</td></tr>
+      <tr><td>细颗粒占比</td><td>${res.fineParticleRatio.toFixed(2)} %</td></tr>
+      <tr><td>颗粒均匀度</td><td>${res.particleUniformity.toFixed(4)}</td></tr>
+      <tr><td>岩石颗粒占比</td><td>${res.rockParticleRate.toFixed(2)} %</td></tr>
+      `
+  }
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>岩心${modeName}分析报告</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Microsoft YaHei', 'SimSun', sans-serif;
+      padding: 40px; font-size: 14px; line-height: 1.6;
+    }
+    h1 {
+      text-align: center; font-size: 24px; font-weight: bold;
+      color: #409EFF; margin-bottom: 30px;
+    }
+    h2 {
+      font-size: 16px; font-weight: bold; margin: 25px 0 12px 0;
+      padding-left: 10px; border-left: 4px solid #409EFF;
+      background-color: #F0F9FF; padding-top: 6px; padding-bottom: 6px;
+    }
+    table {
+      width: 100%; border-collapse: collapse; margin-bottom: 10px;
+    }
+    td {
+      border: 1px solid #DCDFE6; padding: 10px 12px; vertical-align: middle;
+    }
+    td:first-child {
+      width: 30%; font-weight: 500; background-color: #F5F7FA;
+    }
+    footer {
+      margin-top: 30px; text-align: center; font-size: 12px; color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>岩心${modeName}分析报告</h1>
+  <h2>岩心基础信息</h2>
+  <table>
+    <tr><td>井号</td><td>${basicInfo.wellNo}</td></tr>
+    <tr><td>井深</td><td>${basicInfo.wellDepth}</td></tr>
+    <tr><td>层位</td><td>${basicInfo.horizon}</td></tr>
+    <tr><td>岩性</td><td>${basicInfo.lithology}</td></tr>
+    <tr><td>取样日期</td><td>${basicInfo.sampleDate}</td></tr>
+  </table>
+  <h2>分析参数</h2>
+  <table>
+    <tr><td>分析模式</td><td>${modeText}</td></tr>
+    <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
+    <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
+  </table>
+  <h2>统计结果</h2>
+  <table>
+    ${resultHtml}
+  </table>
+  <footer>岩心分析报告 - 生成时间：${new Date().toLocaleString()}</footer>
+</body>
+</html>`
+}
+
+/**
  * 生成PDF报告
  */
 export const exportToPDF = async (
@@ -217,155 +332,7 @@ export const exportToPDF = async (
   results: HoleResults | CrackResults | SizeResults
 ) => {
   try {
-    console.log('=== 开始生成PDF ===')
-    // 1.准备通用变量
-    let modeName = ''
-    let modeText = ''
-    const unit = params.scaleType === 'macro' ? 'mm' : 'μm'
-    let resultHtml = ''
-
-    //模式名赋值
-    if (params.mode === 'hole') {
-      modeName = '孔洞'
-      modeText = '孔洞分析'
-    } else if (params.mode === 'crack') {
-      modeName = '裂缝'
-      modeText = '裂缝分析'
-    } else {
-      modeName = '粒度'
-      modeText = '粒度分析'
-    }
-
-    //2. 根据分析模式生成结果HTML
-    if (params.mode === 'hole') {
-      const res = results as HoleResults
-      resultHtml = `
-      <tr><td>孔洞总数</td><td>${res.totalCount}</td></tr>
-      <tr><td>孔洞总面积</td><td>${res.totalArea.toFixed(4)} ${unit}²</td></tr>
-      <tr><td>平均孔径</td><td>${res.avgDiameter.toFixed(4)} ${unit}</td></tr>
-      <tr><td>最大孔径</td><td>${res.maxDiameter.toFixed(4)} ${unit}</td></tr>
-      <tr><td>最小孔径</td><td>${res.minDiameter.toFixed(4)} ${unit}</td></tr>
-      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
-      `
-    } else if (params.mode === 'crack') {
-      const res = results as CrackResults
-      resultHtml = `
-      <tr><td>裂缝条数</td><td>${res.totalCount}</td></tr>
-      <tr><td>裂缝总长度</td><td>${res.totalLength.toFixed(4)} ${unit}</td></tr>
-      <tr><td>平均宽度</td><td>${res.avgWidth.toFixed(4)} ${unit}</td></tr>
-      <tr><td>面密度</td><td>${res.areaDensity.toFixed(4)} 条/${unit}²</td></tr>
-      <tr><td>线密度</td><td>${res.lineDensity.toFixed(4)} 条/${unit}</td></tr>
-      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
-      `
-    } else {
-      const res = results as SizeResults
-      resultHtml = `
-      <tr><td>颗粒总数</td><td>${res.totalParticleCount}</td></tr>
-      <tr><td>平均粒径</td><td>${res.avgParticleSize.toFixed(4)} ${unit}</td></tr>
-      <tr><td>粗颗粒占比</td><td>${res.coarseParticleRatio.toFixed(2)} %</td></tr>
-      <tr><td>细颗粒占比</td><td>${res.fineParticleRatio.toFixed(2)} %</td></tr>
-      <tr><td>颗粒均匀度</td><td>${res.particleUniformity.toFixed(4)}</td></tr>
-      <tr><td>岩石颗粒占比</td><td>${res.rockParticleRate.toFixed(2)} %</td></tr>
-      `
-    }
-
-    //3. 生成完整的HTML内容
-    const reportHtml = `
-      <!DOCTYPE html>
-    <html lang="zh-CN">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>岩心${modeName}分析报告</title>
-      <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        body {
-          font-family: 'Microsoft YaHei', 'SimSun', sans-serif;
-          padding: 40px;
-          font-size: 14px;
-          line-height: 1.6;
-        }
-        h1 {
-          text-align: center;
-          font-size: 24px;
-          font-weight: bold;
-          color: #409EFF;
-          margin-bottom: 30px;
-        }
-        h2 {
-          font-size: 16px;
-          font-weight: bold;
-          margin: 25px 0 12px 0;
-          padding-left: 10px;
-          border-left: 4px solid #409EFF;
-          background-color: #F0F9FF;
-          padding-top: 6px;
-          padding-bottom: 6px;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 10px;
-        }
-        td {
-          border: 1px solid #DCDFE6;
-          padding: 10px 12px;
-          vertical-align: middle;
-        }
-        td:first-child {
-          width: 30%;
-          font-weight: 500;
-          background-color: #F5F7FA;
-        }
-        @page {
-          size: A4;
-          margin: 20mm;
-        }
-        @media print {
-          footer {
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-            border-top: 1px solid #eee;
-            padding-top: 5px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <h1>岩心${modeName}分析报告</h1>
-      
-      <h2>岩心基础信息</h2>
-      <table>
-        <tr><td>井号</td><td>${basicInfo.wellNo}</td></tr>
-        <tr><td>井深</td><td>${basicInfo.wellDepth}</td></tr>
-        <tr><td>层位</td><td>${basicInfo.horizon}</td></tr>
-        <tr><td>岩性</td><td>${basicInfo.lithology}</td></tr>
-        <tr><td>取样日期</td><td>${basicInfo.sampleDate}</td></tr>
-      </table>
-
-      <h2>分析参数</h2>
-      <table>
-        <tr><td>分析模式</td><td>${modeText}</td></tr>
-        <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
-        <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
-      </table>
-
-      <h2>统计结果</h2>
-      <table>
-        ${resultHtml}
-      </table>
-      <footer>岩心分析报告 - 生成时间：${new Date().toLocaleString()}</footer>
-    </body>
-    </html>
-    `
+    const reportHtml = generateReportHtml(basicInfo, params, results)
 
     //4. 调用主进程,生成PDF事件
     const electron = window.require ? window.require('electron') : require('electron')

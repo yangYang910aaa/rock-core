@@ -125,7 +125,7 @@ const handleMenuSelect = (index: string) => {
   // 报告
   else if (index === 'report-export-excel') handleExportReport('excel')
   else if (index === 'report-export-pdf') handleExportReport('pdf')
-  else if (index === 'report-preview') handleExportReport('pdf')
+  else if (index === 'report-preview') analysisStore.reportPreviewVisible = true
 }
 </script>
 

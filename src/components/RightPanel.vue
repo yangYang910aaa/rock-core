@@ -3,7 +3,7 @@
     <!-- 顶部操作按钮 -->
     <div class="action-btns">
       <!-- 生成分析报告:下拉菜单选择格式 -->
-      <el-dropdown @command="handleExportReport" trigger="click">
+      <el-dropdown @command="handleDropdownCommand" trigger="click">
         <el-button type="danger" block class="panel-btn">
           <el-icon><DocumentAdd /></el-icon>
           生成分析报告
@@ -11,7 +11,8 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="excel">导出Excel</el-dropdown-item>
+            <el-dropdown-item command="preview">预览导出结果</el-dropdown-item>
+            <el-dropdown-item command="excel" divided>导出Excel</el-dropdown-item>
             <el-dropdown-item command="pdf">导出PDF</el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -20,7 +21,7 @@
       <el-button type="primary" block class="panel-btn" @click="handleStartAnalysis"><el-icon><Search /></el-icon>开始分析</el-button>
       <div class="mask-toggle-row">
         <el-switch v-model="analysisStore.showMaskOverlay" size="small" />
-        <span class="mask-toggle-label">允许显示蒙版</span>
+        <span class="mask-toggle-label">是否显示蒙版</span>
       </div>
     </div>
 
@@ -174,6 +175,14 @@ import { useReportExport } from '@/composables/useReportExport'
 const analysisStore = useAnalysisStore()
 const { handleExportReport } = useReportExport()
 const imageStore = useImageStore()
+
+const handleDropdownCommand = (command: string) => {
+  if (command === 'preview') {
+    analysisStore.reportPreviewVisible = true
+  } else {
+    handleExportReport(command as 'excel' | 'pdf')
+  }
+}
 const { 
   targetMaskMat, 
   currentMode, 

@@ -92,6 +92,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const isSelectingRegion=ref<boolean>(false)
     const isAnalyzing=ref<boolean>(false)
     const showMaskOverlay=ref<boolean>(true)
+    const reportPreviewVisible=ref<boolean>(false)
 
    // ==========================================
    // 岩心基础信息状态
@@ -471,6 +472,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     clearHoveredHole,
     resetAll,
     showMaskOverlay,
+    reportPreviewVisible,
     clearTargetMask,
     saveMaskToHistory,
     undoMask,
