@@ -144,7 +144,11 @@ export const exportToExcel = async (
       ['平均孔径', `${res.avgDiameter.toFixed(4)} ${unit}`],
       ['最大孔径', `${res.maxDiameter.toFixed(4)} ${unit}`],
       ['最小孔径', `${res.minDiameter.toFixed(4)} ${unit}`],
-      ['面孔率', `${res.faceRate.toFixed(2)} %`]
+      ['面孔率', `${res.faceRate.toFixed(2)} %`],
+      ['大洞(>10mm)', `${res.largeCount} 个`],
+      ['中洞(5~10mm)', `${res.mediumCount} 个`],
+      ['小洞(1~5mm)', `${res.smallCount} 个`],
+      ['针孔/溶孔(<1mm)', `${res.pinholeCount} 个`],
     ]
   } else if (params.mode === 'crack') {
     const res = results as CrackResults
@@ -242,6 +246,16 @@ export const generateReportHtml = (
       <tr><td>最小孔径</td><td>${res.minDiameter.toFixed(4)} ${unit}</td></tr>
       <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
       `
+    // 追加分类统计
+    if (res.largeCount !== undefined) {
+      resultHtml += `
+      <tr style="border-top:2px solid #409EFF;"><td colspan="2" style="text-align:center;font-weight:bold;background:#F0F9FF;">孔洞分类统计</td></tr>
+      <tr><td>大洞 (&gt;10mm)</td><td>${res.largeCount} 个</td></tr>
+      <tr><td>中洞 (5~10mm)</td><td>${res.mediumCount} 个</td></tr>
+      <tr><td>小洞 (1~5mm)</td><td>${res.smallCount} 个</td></tr>
+      <tr><td>针孔/溶孔 (&lt;1mm)</td><td>${res.pinholeCount} 个</td></tr>
+      `
+    }
   } else if (params.mode === 'crack') {
     const res = results as CrackResults
     resultHtml = `
@@ -345,7 +359,13 @@ export const generateExcelPreviewHtml = (
       <tr><td>平均孔径</td><td>${res.avgDiameter.toFixed(4)} ${unit}</td></tr>
       <tr><td>最大孔径</td><td>${res.maxDiameter.toFixed(4)} ${unit}</td></tr>
       <tr><td>最小孔径</td><td>${res.minDiameter.toFixed(4)} ${unit}</td></tr>
-      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>`
+      <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
+      <tr style="border-top:2px solid #409EFF;"><td colspan="2" style="text-align:center;font-weight:bold;background:#F0F9FF;">孔洞分类统计</td></tr>
+      <tr><td>大洞 (&gt;10mm)</td><td>${res.largeCount} 个</td></tr>
+      <tr><td>中洞 (5~10mm)</td><td>${res.mediumCount} 个</td></tr>
+      <tr><td>小洞 (1~5mm)</td><td>${res.smallCount} 个</td></tr>
+      <tr><td>针孔/溶孔 (&lt;1mm)</td><td>${res.pinholeCount} 个</td></tr>
+      `
   } else if (params.mode === 'crack') {
     modeName = '裂缝'; modeText = '裂缝分析'
     const res = results as CrackResults

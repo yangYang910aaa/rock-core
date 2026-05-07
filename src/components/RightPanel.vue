@@ -132,6 +132,14 @@
               <el-descriptions-item label="最小孔径">{{ (analysisStore.holeResults.minDiameter *unitScale).toFixed(4) }} {{currentUnit}}</el-descriptions-item>
               <el-descriptions-item label="面孔率">{{ analysisStore.holeResults.faceRate }} %</el-descriptions-item>
             </el-descriptions>
+            <!-- 孔洞分类统计 -->
+            <el-descriptions :column="1" size="small" border class="result-table" style="margin-top:12px;">
+              <template #title>孔洞分类统计</template>
+              <el-descriptions-item label="大洞(>10mm)">{{ analysisStore.holeResults.largeCount }} 个</el-descriptions-item>
+              <el-descriptions-item label="中洞(5~10mm)">{{ analysisStore.holeResults.mediumCount }} 个</el-descriptions-item>
+              <el-descriptions-item label="小洞(1~5mm)">{{ analysisStore.holeResults.smallCount }} 个</el-descriptions-item>
+              <el-descriptions-item label="针孔/溶孔(<1mm)">{{ analysisStore.holeResults.pinholeCount }} 个</el-descriptions-item>
+            </el-descriptions>
           </template>
           <!-- 裂缝分析结果 -->
            <template v-else-if="analysisStore.currentMode === 'crack'">

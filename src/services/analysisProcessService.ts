@@ -181,6 +181,15 @@ export const executeFullAnalysis = async (
           minDiameter = Math.min(minDiameter, diameter)
         }
 
+        // 计算孔洞分类统计
+        let largeCount=0, mediumCount=0, smallCount=0, pinholeCount=0
+        for (const d of diameters) {
+          if (d > 10) largeCount++
+          else if (d >= 5) mediumCount++
+          else if (d >= 1) smallCount++
+          else pinholeCount++
+        }
+
         // 计算分析区域总面积
         const regionArea = region.width > 0
           ? region.width * region.height * pixelToMm * pixelToMm
@@ -193,7 +202,11 @@ export const executeFullAnalysis = async (
           avgDiameter: diameters.length > 0 ? Number((diameters.reduce((a, b) => a + b, 0) / diameters.length).toFixed(4)) : 0,
           maxDiameter: Number(maxDiameter.toFixed(4)),
           minDiameter: minDiameter === Infinity ? 0 : Number(minDiameter.toFixed(4)),
-          faceRate: Number(((totalArea / regionArea) * 100).toFixed(2))
+          faceRate: Number(((totalArea / regionArea) * 100).toFixed(2)),
+          largeCount,
+          mediumCount,
+          smallCount,
+          pinholeCount
         } as HoleResults
 
         // 释放内存
