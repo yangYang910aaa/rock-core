@@ -142,7 +142,7 @@ export const useImageStore = defineStore('image', () => {
     }
     calibrateEndPoint.value=point
    
-    //计算校准线的像素长度
+    // 计算校准线的像素长度
     const dx=calibrateEndPoint.value.x-calibrateStartPoint.value.x
     const dy=calibrateEndPoint.value.y-calibrateStartPoint.value.y
     const pixelLength=Math.sqrt(dx*dx+dy*dy)
@@ -151,11 +151,17 @@ export const useImageStore = defineStore('image', () => {
       return
     }
 
-    //计算精准的像素-毫米系数:1像素=真实长度/像素长度
-    const newPixelToMm=calibrateRealLength.value/pixelLength
+    // 统一转为 mm：微观模式下真实长度是 μm，需 /1000
+    const realLengthMm = scaleType.value === 'micro'
+      ? calibrateRealLength.value / 1000
+      : calibrateRealLength.value
+    const newPixelToMm = realLengthMm / pixelLength
     setPixelToMm(newPixelToMm)
-    ElMessage.success(`标尺校准完成! 1像素=${newPixelToMm.toFixed(6)}mm`)
-    toggleCalibrate(false) // 结束校准
+
+    const unit = scaleType.value === 'micro' ? 'μm' : 'mm'
+    const displayValue = scaleType.value === 'micro' ? newPixelToMm * 1000 : newPixelToMm
+    ElMessage.success(`标尺校准完成! 1像素=${displayValue.toFixed(6)}${unit}`)
+    toggleCalibrate(false)
   }
 
   //重置校准
