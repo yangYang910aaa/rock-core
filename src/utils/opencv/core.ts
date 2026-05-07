@@ -202,9 +202,9 @@ export const detectHoveredHole = (
   maskForContours.delete()
 
   let resultInfo: HoleInfo | null = null
+  let holeIndex = 0
 
   try {
-    // 遍历轮廓，找到包含该点的轮廓
     for (let i = 0; i < contours.size(); i++) {
       const contour = contours.get(i)
       const area = cv.contourArea(contour)
@@ -213,15 +213,13 @@ export const detectHoveredHole = (
         contour.delete()
         continue
       }
+      holeIndex++
 
-      // 检查点是否在轮廓内（使用全图坐标）
       const result = cv.pointPolygonTest(contour, new cv.Point(mouseX, mouseY), false)
       if (result >= 0) {
-        // 计算孔洞参数
         const diameter = Math.sqrt(4 * area / Math.PI) * pixelToMm
         const holeArea = area * pixelToMm * pixelToMm
 
-        // 计算中心坐标（全图坐标）
         const moments = cv.moments(contour)
         let centerX = mouseX
         let centerY = mouseY
@@ -231,7 +229,7 @@ export const detectHoveredHole = (
         }
 
         resultInfo = {
-          index: i + 1,
+          index: holeIndex,
           diameter: Number(diameter.toFixed(4)),
           area: Number(holeArea.toFixed(4)),
           centerX,
@@ -300,14 +298,26 @@ export const maskToVisualWithHighlight = (
     maskForContours.delete()
 
     try {
-      const targetIndex = hoverIndex - 1
-      if (targetIndex >= 0 && targetIndex < contours.size()) {
-        const contour = contours.get(targetIndex)
-        const area = cv.contourArea(contour)
+      // 用过滤后的序号定位要高亮的轮廓（跳过滤掉的噪点）
+      let holeIndex = 0
+      let foundContourIndex = -1
+      for (let i = 0; i < contours.size(); i++) {
+        const c = contours.get(i)
+        const area = cv.contourArea(c)
         if (area >= 10) {
-          // 创建高亮区域蒙版（全图尺寸，轮廓坐标也是全图坐标）
+          holeIndex++
+          if (holeIndex === hoverIndex) {
+            foundContourIndex = i
+            break
+          }
+        }
+      }
+
+      if (foundContourIndex >= 0) {
+        const contour = contours.get(foundContourIndex)
+        if (cv.contourArea(contour) >= 10) {
           const highlightMask = new cv.Mat(binaryMask.rows, binaryMask.cols, cv.CV_8UC1, new cv.Scalar(0))
-          cv.drawContours(highlightMask, contours, targetIndex, new cv.Scalar(255), cv.FILLED)
+          cv.drawContours(highlightMask, contours, foundContourIndex, new cv.Scalar(255), cv.FILLED)
 
           // 将高亮区域叠加到可视化蒙版上
           if (isLocalMode) {
