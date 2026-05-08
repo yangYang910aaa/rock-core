@@ -54,12 +54,26 @@
         </el-sub-menu>
       </el-menu>
     </div>
-
     <!-- 窗口控制按钮 -->
     <div class="window-controls">
       <div class="control-btn min-btn" @click="handleMin">—</div>
-      <div class="control-btn max-btn" @click="handleMax">□</div>
-      <div class="control-btn close-btn" @click="handleClose">×</div>
+      <div class="control-btn max-btn" @click="handleMax">
+            <!-- 当 isMaximized 为 true 时，缩小窗口 -->
+    <svg v-if="isMaximized" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m14 10 7-7"/>
+      <path d="M20 10h-6V4"/>
+      <path d="m3 21 7-7"/>
+      <path d="M4 14h6v6"/>
+    </svg>
+           <!-- 当 isMaximized 为 false 时，最大化窗口 -->
+    <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-maximize2-icon lucide-maximize-2">
+      <path d="M15 3h6v6"/>
+      <path d="m21 3-7 7"/>
+      <path d="m3 21 7-7"/>
+      <path d="M9 21H3v-6"/>
+    </svg>
+  </div>
+      <div class="control-btn close-btn" @click="handleClose">🗙</div>
     </div>
   </div>
 </template>
@@ -68,15 +82,23 @@
 import { useImageStore, type PreprocessType } from '@/stores/imageStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { useReportExport } from '@/composables/useReportExport'
+import { ref } from 'vue' // 只需要导入 ref
 
 const { ipcRenderer } = window.require('electron')
 const imageStore = useImageStore()
 const analysisStore = useAnalysisStore()
 const { handleExportReport } = useReportExport()
 
+// 添加一个简单的状态变量来跟踪最大化状态
+const isMaximized = ref(false)
+
 // 窗口控制
 const handleMin = () => ipcRenderer.send('window-min')
-const handleMax = () => ipcRenderer.send('window-max')
+const handleMax = () => {
+  ipcRenderer.send('window-max')
+  // 切换最大化状态标志
+  isMaximized.value = !isMaximized.value
+}
 const handleClose = () => ipcRenderer.send('window-close')
 const handleReload = () => ipcRenderer.send('window-reload')
 const handleOpenDevTools = () => ipcRenderer.send('window-devtools')
