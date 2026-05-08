@@ -59,20 +59,20 @@
       <div class="control-btn min-btn" @click="handleMin">—</div>
       <div class="control-btn max-btn" @click="handleMax">
             <!-- 当 isMaximized 为 true 时，缩小窗口 -->
-    <svg v-if="isMaximized" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m14 10 7-7"/>
-      <path d="M20 10h-6V4"/>
-      <path d="m3 21 7-7"/>
-      <path d="M4 14h6v6"/>
-    </svg>
+        <svg v-if="isMaximized" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m14 10 7-7"/>
+          <path d="M20 10h-6V4"/>
+          <path d="m3 21 7-7"/>
+          <path d="M4 14h6v6"/>
+        </svg>
            <!-- 当 isMaximized 为 false 时，最大化窗口 -->
-    <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-maximize2-icon lucide-maximize-2">
-      <path d="M15 3h6v6"/>
-      <path d="m21 3-7 7"/>
-      <path d="m3 21 7-7"/>
-      <path d="M9 21H3v-6"/>
-    </svg>
-  </div>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-maximize2-icon lucide-maximize-2">
+          <path d="M15 3h6v6"/>
+          <path d="m21 3-7 7"/>
+          <path d="m3 21 7-7"/>
+          <path d="M9 21H3v-6"/>
+        </svg>
+      </div>
       <div class="control-btn close-btn" @click="handleClose">🗙</div>
     </div>
   </div>
