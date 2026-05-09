@@ -31,6 +31,14 @@ function createWindow() {
       if (!mainWindow) return
       mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize()
     })
+
+    // 监听原生最大化/还原事件，同步给渲染进程（覆盖双击标题栏、快捷键等所有触发方式）
+    mainWindow.on('maximize', () => {
+      mainWindow?.webContents.send('window-maximized', true)
+    })
+    mainWindow.on('unmaximize', () => {
+      mainWindow?.webContents.send('window-maximized', false)
+    })
     ipcMain.on('window-close', () => mainWindow?.close())
     ipcMain.on('window-reload', () => mainWindow?.webContents.reload())
     ipcMain.on('window-devtools', () => mainWindow?.webContents.toggleDevTools())
@@ -58,6 +66,7 @@ function createWindow() {
         const dataUrl = `data:image/${ext};base64,${base64Data}`
         return { filePath, dataUrl }
       } catch (error) {
+        console.error('读取图片文件失败:', error)
         return null
       }
     })
@@ -118,6 +127,11 @@ function createWindow() {
     } else {
       mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
     }
+
+    // 启动后最大化，页面加载完成后触发，渲染进程此时已注册监听器
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow?.maximize()
+    })
 
     mainWindow?.on('closed', () => {
       mainWindow = null

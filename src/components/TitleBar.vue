@@ -82,23 +82,32 @@
 import { useImageStore, type PreprocessType } from '@/stores/imageStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { useReportExport } from '@/composables/useReportExport'
-import { ref } from 'vue' // 只需要导入 ref
+import { ref, onMounted,onBeforeUnmount } from 'vue' 
+import { ElMessage } from 'element-plus'
 
 const { ipcRenderer } = window.require('electron')
 const imageStore = useImageStore()
 const analysisStore = useAnalysisStore()
 const { handleExportReport } = useReportExport()
 
-// 添加一个简单的状态变量来跟踪最大化状态
+// 最大化状态：由主进程推送，覆盖所有触发方式（按钮/双击/快捷键）
 const isMaximized = ref(false)
+// 抽离成具名函数，方便移除监听
+const onWindowMaximized = (_event: any, maximized: boolean) => {
+  isMaximized.value = maximized
+}
+
+onMounted(() => {
+  ipcRenderer.on('window-maximized', onWindowMaximized)
+})
+
+onBeforeUnmount(() => {
+  ipcRenderer.removeListener('window-maximized', onWindowMaximized)
+})
 
 // 窗口控制
 const handleMin = () => ipcRenderer.send('window-min')
-const handleMax = () => {
-  ipcRenderer.send('window-max')
-  // 切换最大化状态标志
-  isMaximized.value = !isMaximized.value
-}
+const handleMax = () => ipcRenderer.send('window-max')
 const handleClose = () => ipcRenderer.send('window-close')
 const handleReload = () => ipcRenderer.send('window-reload')
 const handleOpenDevTools = () => ipcRenderer.send('window-devtools')
@@ -111,6 +120,8 @@ const handleOpenImage = async () => {
       imageStore.setImage(result.filePath, result.dataUrl)
     }
   } catch (error) {
+    console.error('打开岩心图片失败:', error)
+    ElMessage.error('打开岩心图片失败')
   }
 }
 
