@@ -5,10 +5,12 @@ import type {HoleResults,CrackResults,SizeResults,CoreBasicInfo} from '@/stores/
  * 分析参数
  */
 interface AnalysisParams{
-    mode:'hole'|'crack'|'size' //分析模式
-    regionMode:'full'|'rect' //分析区域
-    scaleType:'macro'|'micro' //标尺类型
-    threshold:any  
+    mode:'hole'|'crack'|'size'
+    regionMode:'full'|'rect'
+    scaleType:'macro'|'micro'
+    threshold:any
+    validity?:string
+    fillingMaterial?:string
 }
 /**
  * 生成Excel报告
@@ -108,12 +110,18 @@ export const exportToExcel = async (
     ['分析范围', params.regionMode === 'full' ? '全图分析' : '局部分析'],
     ['标尺类型', params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)']
   ]
+  // 如果需要，追加属性标注
+  if (params.validity) {
+    paramRows.push(['有效性评价', validityLabels[params.validity] || params.validity])
+  }
+  if (params.fillingMaterial) {
+    paramRows.push(['充填物类型', fillingMaterialLabels[params.fillingMaterial] || params.fillingMaterial])
+  }
+
   paramRows.forEach(rowData => {
     const row = worksheet.addRow(rowData)
-    // 标签列样式统一
     row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } }
     row.getCell(1).font = { bold: true }
-    // 所有单元格左对齐+垂直居中
     row.eachCell(cell => {
       cell.alignment = { horizontal: 'left', vertical: 'middle' }
     })
@@ -212,6 +220,24 @@ export const exportToExcel = async (
   saveAs(blob, `岩心${modeName}分析报告_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
+// 有效性评价 + 充填物类型的显示标签映射
+const validityLabels: Record<string, string> = {
+  effective: '有效（未充填）',
+  semiEffective: '较有效（半充填）',
+  ineffective: '无效（全充填）',
+}
+
+const fillingMaterialLabels: Record<string, string> = {
+  mud: '泥质',
+  calcite: '方解石',
+  dolomite: '白云石',
+  asphalt: '沥青',
+  gypsum: '石膏',
+  pyrite: '黄铁矿',
+  kaolinite: '高岭石',
+  quartz: '石英',
+}
+
 /**
  * 生成报告HTML内容（PDF和预览共用）
  */
@@ -236,6 +262,15 @@ export const generateReportHtml = (
     modeText = '粒度分析'
   }
 
+  // 属性标注行（插入到分析参数表格末尾，未选择时为空不显示）
+  let attrHtml = ''
+  if (params.validity) {
+    attrHtml += `<tr><td>有效性评价</td><td>${validityLabels[params.validity] || params.validity}</td></tr>`
+  }
+  if (params.fillingMaterial) {
+    attrHtml += `<tr><td>充填物类型</td><td>${fillingMaterialLabels[params.fillingMaterial] || params.fillingMaterial}</td></tr>`
+  }
+
   if (params.mode === 'hole') {
     const res = results as HoleResults
     resultHtml = `
@@ -245,17 +280,12 @@ export const generateReportHtml = (
       <tr><td>最大孔径</td><td>${res.maxDiameter.toFixed(4)} ${unit}</td></tr>
       <tr><td>最小孔径</td><td>${res.minDiameter.toFixed(4)} ${unit}</td></tr>
       <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
-      `
-    // 追加分类统计
-    if (res.largeCount !== undefined) {
-      resultHtml += `
       <tr style="border-top:2px solid #409EFF;"><td colspan="2" style="text-align:center;font-weight:bold;background:#F0F9FF;">孔洞分类统计</td></tr>
       <tr><td>大洞 (&gt;10mm)</td><td>${res.largeCount} 个</td></tr>
       <tr><td>中洞 (5~10mm)</td><td>${res.mediumCount} 个</td></tr>
       <tr><td>小洞 (1~5mm)</td><td>${res.smallCount} 个</td></tr>
       <tr><td>针孔/溶孔 (&lt;1mm)</td><td>${res.pinholeCount} 个</td></tr>
       `
-    }
   } else if (params.mode === 'crack') {
     const res = results as CrackResults
     resultHtml = `
@@ -327,6 +357,7 @@ export const generateReportHtml = (
     <tr><td>分析模式</td><td>${modeText}</td></tr>
     <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
     <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
+    ${attrHtml}
   </table>
   <h2>统计结果</h2>
   <table>
@@ -388,6 +419,15 @@ export const generateExcelPreviewHtml = (
       <tr><td>岩石颗粒占比</td><td>${res.rockParticleRate.toFixed(2)} %</td></tr>`
   }
 
+  // 属性标注行（Excel预览用，插入到分析参数表格末尾）
+  let attrHtml = ''
+  if (params.validity) {
+    attrHtml += `<tr><td>有效性评价</td><td>${validityLabels[params.validity] || params.validity}</td></tr>`
+  }
+  if (params.fillingMaterial) {
+    attrHtml += `<tr><td>充填物类型</td><td>${fillingMaterialLabels[params.fillingMaterial] || params.fillingMaterial}</td></tr>`
+  }
+
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><title>Excel预览</title>
@@ -442,6 +482,7 @@ export const generateExcelPreviewHtml = (
       <tr><td>分析模式</td><td>${modeText}</td></tr>
       <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
       <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
+    ${attrHtml}
     </table>
     <div class="section-header">统计结果</div>
     <table>${resultRows}</table>

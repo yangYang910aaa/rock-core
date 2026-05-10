@@ -10,6 +10,12 @@ import { copyMat, deleteMatSafe } from '@/utils/opencv/core'
 // ----
 export type AnalysisMode='hole'|'crack'|'size'
 export type RegionMode='full'|'rect'
+
+// 有效性评价类型
+export type ValidityType = 'effective' | 'semiEffective' | 'ineffective' | ''
+// 充填物类型
+export type FillingMaterial = 'mud' | 'calcite' | 'dolomite' | 'asphalt' | 'gypsum' | 'pyrite' | 'kaolinite' | 'quartz' | ''
+
 export interface AnalysisRegion{
     x:number
     y:number
@@ -98,6 +104,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const isAnalyzing=ref<boolean>(false)
     const showMaskOverlay=ref<boolean>(true)
     const reportPreviewVisible=ref<boolean>(false)
+
+   // ----
+   // 属性标注状态（有效性评价 + 充填物类型）
+   // ----
+    const validity=ref<ValidityType>('')
+    const fillingMaterial=ref<FillingMaterial>('')
 
    // ----
    // 岩心基础信息状态
@@ -213,6 +225,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         isSelectingRegion.value=false
         isAnalyzing.value=false
         showMaskOverlay.value=true
+        validity.value=''
+        fillingMaterial.value=''
         resetAnalysisRegion()
         resetResults()
         resetThresholds()
@@ -389,7 +403,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         ElMessage.warning('无效的蒙版输入')
         return
       }
-       // 【核心修复】用原图全图尺寸生成可视化蒙版，而不是binaryMask的尺寸
+       // 用原图全图尺寸生成可视化蒙版，而不是binaryMask的尺寸
       const { width, height } = sourceImageSize.value
         if (width === 0 || height === 0) {
           ElMessage.warning('原图尺寸无效')
@@ -478,6 +492,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,
+    validity,
+    fillingMaterial,
     clearTargetMask,
     saveMaskToHistory,
     undoMask,

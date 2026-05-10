@@ -59,6 +59,8 @@ export const useReportExport = () => {
       threshold: currentMode === 'hole' ? analysisStore.holeThreshold
         : currentMode === 'crack' ? analysisStore.crackThreshold
         : analysisStore.sizeThreshold,
+      validity: analysisStore.validity,
+      fillingMaterial: analysisStore.fillingMaterial,
     }
 
     let results: any

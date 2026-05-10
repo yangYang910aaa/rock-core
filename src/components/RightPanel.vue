@@ -164,6 +164,29 @@
               <el-descriptions-item label="岩石颗粒占比">{{ analysisStore.sizeResults.rockParticleRate }} %</el-descriptions-item>
             </el-descriptions>
           </template>
+
+          <!-- 属性标注：岩心分析完成后可标记有效性和充填物，报告会同步 -->
+          <el-form label-width="90px"  class="panel-form" style="margin-top:16px;">
+            <el-form-item label="有效性评价">
+              <el-select v-model="validity" placeholder="请选择" clearable style="width:100%;">
+                <el-option label="有效（未充填）" value="effective" />
+                <el-option label="较有效（半充填）" value="semiEffective" />
+                <el-option label="无效（全充填）" value="ineffective" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="充填物类型">
+              <el-select v-model="fillingMaterial" placeholder="请选择" clearable style="width:100%;">
+                <el-option label="泥质" value="mud" />
+                <el-option label="方解石" value="calcite" />
+                <el-option label="白云石" value="dolomite" />
+                <el-option label="沥青" value="asphalt" />
+                <el-option label="石膏" value="gypsum" />
+                <el-option label="黄铁矿" value="pyrite" />
+                <el-option label="高岭石" value="kaolinite" />
+                <el-option label="石英" value="quartz" />
+              </el-select>
+            </el-form-item>
+          </el-form>
         </el-collapse-item>
       </el-collapse>
     </div>
@@ -191,18 +214,20 @@ const handleDropdownCommand = (command: string) => {
     handleExportReport(command as 'excel' | 'pdf')
   }
 }
-const { 
-  targetMaskMat, 
-  currentMode, 
+const {
+  targetMaskMat,
+  currentMode,
   regionMode,
-  holeThreshold, 
-  crackThreshold, 
-  sizeThreshold, 
+  holeThreshold,
+  crackThreshold,
+  sizeThreshold,
   holeResults,
   crackResults,
   sizeResults,
   analysisRegion,
-  coreBasicInfo
+  coreBasicInfo,
+  validity,
+  fillingMaterial,
 } = storeToRefs(analysisStore)
 
 
@@ -217,7 +242,7 @@ const unitScale=computed(()=>{
   return imageStore.scaleType==='macro'?1:1000
 })
 
-const activeNames = ref<string[]>(['0','1','2'])
+const activeNames = ref<string[]>(['2'])
 // 防抖处理，避免频繁调用
 let previewDebounceTimer: NodeJS.Timeout | null = null
 //是否正在重置分析

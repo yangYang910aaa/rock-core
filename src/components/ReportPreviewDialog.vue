@@ -91,7 +91,9 @@ const generatePreview = () => {
     mode: currentMode,
     regionMode,
     scaleType,
-    threshold
+    threshold,
+    validity: analysisStore.validity,
+    fillingMaterial: analysisStore.fillingMaterial,
   }
 
   if (selectedFormat.value === 'excel') {
