@@ -1,7 +1,7 @@
 <template>
     <div class="image-canvas-wrapper">
         <!-- 空状态提示 -->
-        <div class="empty-state" v-if="!isImageLoaded">
+        <div class="empty-state" v-if="!imageStore.isImageLoaded">
             <el-icon size="64" color="#909399"><PictureFilled/></el-icon>
             <p class="empty-text">请点击顶部[文件]菜单打开岩心图片</p>
         </div>
@@ -11,19 +11,19 @@
             <!-- Tooltip -->
             <Transition name="tooltip">
               <div
-                v-if="tooltipVisible && hoveredHoleInfo"
+                v-if="tooltipVisible && analysisStore.hoveredHoleInfo"
                 class="hole-tooltip"
                 :style="{ left: tooltipX + 'px', top: tooltipY + 'px' }"
               >
-                <div class="tooltip-title">{{ tooltipTitle }} #{{ hoveredHoleInfo.index }}</div>
+                <div class="tooltip-title">{{ tooltipTitle }} #{{ analysisStore.hoveredHoleInfo.index }}</div>
                 <div class="tooltip-content">
                   <div class="tooltip-item">
                     <span class="tooltip-label">直径:</span>
-                    <span class="tooltip-value">{{ hoveredHoleInfo.diameter.toFixed(3) }} {{ currentUnit }}</span>
+                    <span class="tooltip-value">{{ analysisStore.hoveredHoleInfo.diameter.toFixed(3) }} {{ currentUnit }}</span>
                   </div>
                   <div class="tooltip-item">
                     <span class="tooltip-label">面积:</span>
-                    <span class="tooltip-value">{{ hoveredHoleInfo.area.toFixed(4) }} {{ currentUnit }}²</span>
+                    <span class="tooltip-value">{{ analysisStore.hoveredHoleInfo.area.toFixed(4) }} {{ currentUnit }}²</span>
                   </div>
                 </div>
               </div>
@@ -50,17 +50,17 @@
                 <canvas
                     ref="targetMaskCanvasRef"
                     class="mask-canvas target-mask"
-                    v-show="showMaskOverlay"
+                    v-show="analysisStore.showMaskOverlay"
                 />
             </div>
 
             <!-- 图片信息栏 -->
             <div class="image-info">
-                <span class="image-item">文件路径:{{ currentImagePath }}</span>
-                <span class="image-tag" v-if="isImageProcessed" style="margin-left: 12px; color: #67c23a;">
+                <span class="image-item">文件路径:{{ imageStore.currentImagePath }}</span>
+                <span class="image-tag" v-if="imageStore.isImageProcessed" style="margin-left: 12px; color: #67c23a;">
                     <el-icon><Check /></el-icon> 已处理
                 </span>
-                <span class="image-tag" v-if="isProcessing" style="margin-left: 12px; color: #e6a23c;">
+                <span class="image-tag" v-if="imageStore.isProcessing" style="margin-left: 12px; color: #e6a23c;">
                     <el-icon><Loading /></el-icon> 处理中...
                 </span>
                 <!-- 显示缩放比例 -->
@@ -89,28 +89,13 @@ const imageStore = useImageStore();
 const analysisStore = useAnalysisStore()
 
 const {
-  currentImagePath,
-  isImageLoaded,
-  isImageProcessed,
-  isProcessing,
   isCalibrating,
-  calibrateStartPoint,
-  calibrateEndPoint,
   scaleType,
-  pixelToMm
- } = storeToRefs(imageStore)
+} = storeToRefs(imageStore)
 const {
-  currentMode,
-  analysisRegion,
-  regionMode,
-  hoveredHoleInfo,
-  binaryMaskMat,
-  showMaskOverlay
+  analysisRegion
 } = storeToRefs(analysisStore)
-const {
-  clearHoveredHole,
-  setHoveredHoleInfo
-} = analysisStore
+
 // ==========================================
 // 2. Tooltip 状态
 // ==========================================
@@ -124,7 +109,7 @@ const unitScale = computed(() => {
   return scaleType.value === 'macro' ? 1 : 1000
 })
 const tooltipTitle=computed(()=>{
-  const mode=currentMode.value
+  const mode=analysisStore.currentMode
   switch(mode){
     case 'hole':
       return '孔洞'
@@ -217,7 +202,7 @@ const handleMouseUp = () => {
 
 const handleMouseLeave = () => {
   // 鼠标离开时清除悬停状态
-  clearHoveredHole()
+  analysisStore.clearHoveredHole()
   tooltipVisible.value = false
 }
 
@@ -226,7 +211,7 @@ const detectHoveredHoleOnCanvas = (canvasX: number, canvasY: number, rect: DOMRe
   // 获取二值蒙版
   const binaryMask = analysisStore.binaryMaskMat
   if (!binaryMask || binaryMask.empty()) {
-    clearHoveredHole()
+    analysisStore.clearHoveredHole()
     tooltipVisible.value = false
     return
   }
@@ -236,7 +221,7 @@ const detectHoveredHoleOnCanvas = (canvasX: number, canvasY: number, rect: DOMRe
   
   // 检查坐标是否有效
   if (isNaN(imageCoords.x) || isNaN(imageCoords.y) || imageCoords.x < 0 || imageCoords.y < 0) {
-    clearHoveredHole()
+    analysisStore.clearHoveredHole()
     tooltipVisible.value = false
     return
   }
@@ -247,12 +232,12 @@ const detectHoveredHoleOnCanvas = (canvasX: number, canvasY: number, rect: DOMRe
     imageCoords.x,
     imageCoords.y,
     analysisRegion.value,
-    pixelToMm.value
+    imageStore.pixelToMm
   )
 
   if (holeInfo) {
     // 更新悬停信息
-    setHoveredHoleInfo({
+    analysisStore.setHoveredHoleInfo({
       ...holeInfo,
       diameter: holeInfo.diameter * unitScale.value,
       area: holeInfo.area * unitScale.value * unitScale.value
@@ -263,7 +248,7 @@ const detectHoveredHoleOnCanvas = (canvasX: number, canvasY: number, rect: DOMRe
     tooltipY.value = rect.top + canvasY - 10
     tooltipVisible.value = true
   } else {
-    clearHoveredHole()
+    analysisStore.clearHoveredHole()
     tooltipVisible.value = false
   }
 }
@@ -275,12 +260,12 @@ watch(() => analysisRegion.value, () => {
   drawRegionMask()
 }, { deep: true })
 
-watch(() => regionMode.value, () => {
+watch(() => analysisStore.regionMode, () => {
   drawRegionMask()
 })
 
 // 监听校准状态变化
-watch([isCalibrating, calibrateStartPoint, calibrateEndPoint], () => {
+watch([isCalibrating, () => imageStore.calibrateStartPoint, () => imageStore.calibrateEndPoint], () => {
   drawTargetMask()
 })
 

@@ -168,14 +168,14 @@
           <!-- 属性标注：岩心分析完成后可标记有效性和充填物，报告会同步 -->
           <el-form label-width="90px"  class="panel-form" style="margin-top:16px;">
             <el-form-item label="有效性评价">
-              <el-select v-model="validity" placeholder="请选择" clearable style="width:100%;">
+              <el-select v-model="analysisStore.validity" placeholder="请选择" clearable style="width:100%;">
                 <el-option label="有效（未充填）" value="effective" />
                 <el-option label="较有效（半充填）" value="semiEffective" />
                 <el-option label="无效（全充填）" value="ineffective" />
               </el-select>
             </el-form-item>
             <el-form-item label="充填物类型">
-              <el-select v-model="fillingMaterial" placeholder="请选择" clearable style="width:100%;">
+              <el-select v-model="analysisStore.fillingMaterial" placeholder="请选择" clearable style="width:100%;">
                 <el-option label="泥质" value="mud" />
                 <el-option label="方解石" value="calcite" />
                 <el-option label="白云石" value="dolomite" />
@@ -207,6 +207,7 @@ const analysisStore = useAnalysisStore()
 const { handleExportReport } = useReportExport()
 const imageStore = useImageStore()
 
+//点击生成分析报告
 const handleDropdownCommand = (command: string) => {
   if (command === 'preview') {
     analysisStore.reportPreviewVisible = true
@@ -217,29 +218,21 @@ const handleDropdownCommand = (command: string) => {
 const {
   targetMaskMat,
   currentMode,
-  regionMode,
   holeThreshold,
   crackThreshold,
   sizeThreshold,
-  holeResults,
-  crackResults,
-  sizeResults,
-  analysisRegion,
-  coreBasicInfo,
-  validity,
-  fillingMaterial,
 } = storeToRefs(analysisStore)
 
 
-const {pixelToMm,scaleType}=storeToRefs(imageStore)
+const {scaleType}=storeToRefs(imageStore)
 // 根据标尺类型动态切换单位
 const currentUnit=computed(()=>{
-  return imageStore.scaleType==='macro'?'mm':'μm'
+  return scaleType.value==='macro'?'mm':'μm'
 })
 
 // 根据标尺类型动态切换单位缩放系数,mm转换为μm乘以1000
 const unitScale=computed(()=>{
-  return imageStore.scaleType==='macro'?1:1000
+  return scaleType.value==='macro'?1:1000
 })
 
 const activeNames = ref<string[]>(['2'])
@@ -273,7 +266,7 @@ const debouncePreview = () => {
       currentMode.value,
       imageStore.processedImageDataUrl,
       threshold,
-      analysisRegion.value,
+      analysisStore.analysisRegion,
       targetMaskMat
     )
   }, 200)
@@ -322,8 +315,8 @@ const handleStartAnalysis=async()=>{
       currentMode.value,
       imageStore.processedImageDataUrl,
       threshold!,
-      analysisRegion.value,
-      pixelToMm.value 
+      analysisStore.analysisRegion,
+      imageStore.pixelToMm
     )
     if(results){
       switch(currentMode.value){
@@ -374,7 +367,7 @@ watch(() => currentMode.value, (newMode, oldMode) => {
   }
 })
 // 切换分析区域时：实时预览
-watch(() => analysisRegion.value, () => {
+watch(() => analysisStore.analysisRegion, () => {
   if (!isResetting.value) debouncePreview()
 }, { deep: true })
 

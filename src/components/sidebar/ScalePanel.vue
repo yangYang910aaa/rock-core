@@ -22,11 +22,11 @@
         <el-button
           :type="imageStore.isCalibrating ? 'danger' : 'primary'"
           class="sidebar-btn small-btn"
-          @click="toggleCalibrate(!isCalibrating)"
+          @click="imageStore.toggleCalibrate(!imageStore.isCalibrating)"
         >
-          {{ isCalibrating ? '取消校准' : '开始校准' }}
+          {{ imageStore.isCalibrating ? '取消校准' : '开始校准' }}
         </el-button>
-        <el-button class="sidebar-btn small-btn" @click="resetCalibrate">
+        <el-button class="sidebar-btn small-btn" @click="imageStore.resetCalibrate">
           重置默认
         </el-button>
       </div>
@@ -39,29 +39,16 @@
 // 标尺校准面板：选择宏观/微观 → 设定真实长度 → 在图片上画校准线
 import { ref, watch } from 'vue'
 import { useImageStore } from '@/stores/imageStore'
-import { storeToRefs } from 'pinia'
 
 const imageStore = useImageStore()
-const { 
-  scaleType: storeScaleType,
-  isCalibrating,
-  calibrateRealLength,
-} = storeToRefs(imageStore)
-const {
-   setScaleType,
-   resetCalibrate,
-   toggleCalibrate 
-  } = imageStore
 
 // 本地 ref 用于双向绑定，双向同步 store
-const localScaleType = ref<'macro' | 'micro'>(storeScaleType.value)
+const localScaleType = ref<'macro' | 'micro'>(imageStore.scaleType)
 
-// 同步标尺类型: 本地 -> store
 watch(localScaleType, (newType) => {
-  setScaleType(newType)
+  imageStore.setScaleType(newType)
 })
-//  store -> 本地
-watch(storeScaleType, (newType) => {
+watch(() => imageStore.scaleType, (newType) => {
   localScaleType.value = newType
 })
 </script>

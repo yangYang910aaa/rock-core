@@ -1,6 +1,6 @@
 <template>
   <div class="analysis-panel">
-    <el-radio-group v-model="analysisMode" type="button" class="analysis-radio-group">
+    <el-radio-group v-model="analysisStore.currentMode" type="button" class="analysis-radio-group">
       <el-radio-button label="hole">孔洞分析</el-radio-button>
       <el-radio-button label="crack">裂缝分析</el-radio-button>
       <el-radio-button label="size">粒度分析</el-radio-button>
@@ -10,15 +10,15 @@
     <div class="region-mode-group">
       <div class="group-title">分析范围</div>
       <el-radio-group
-        v-model="regionMode"
+        v-model="analysisStore.regionMode"
         type="button"
         class="region-radio-group"
-        :disabled="!isImageLoaded"
+        :disabled="!imageStore.isImageLoaded"
       >
         <el-radio-button label="full">全图分析</el-radio-button>
         <el-radio-button label="rect">局部分析</el-radio-button>
       </el-radio-group>
-      <p class="region-tip" v-if="regionMode==='rect'">可在右侧图片上拖拽绘制矩形分析区域</p>
+      <p class="region-tip" v-if="analysisStore.regionMode==='rect'">可在右侧图片上拖拽绘制矩形分析区域</p>
     </div>
 
     <!-- 核心分析操作区 -->
@@ -132,7 +132,7 @@
 
 <script setup lang="ts">
 import { markRaw, ref, watch } from 'vue'
-import { useAnalysisStore, type AnalysisMode, type AnalysisRegion, type RegionMode } from '@/stores/analysisStore'
+import { useAnalysisStore, type AnalysisRegion, type RegionMode } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
@@ -144,18 +144,15 @@ const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
 
 // 解构Store状态
-const { currentMode: analysisMode, regionMode, binaryMaskMat, analysisRegion, sourceImageSize, targetMaskMat } = storeToRefs(analysisStore)
-const { isImageLoaded } = storeToRefs(imageStore)
-const { undoMask, redoMask, updateMask, resetMaskToInitial } = analysisStore
+const { binaryMaskMat, analysisRegion } = storeToRefs(analysisStore)
 
-// 监听分析模式变化,同步到Store
-watch(analysisMode, (newMode) => {
-  analysisStore.setMode(newMode)
+// 监听分析模式变化：v-model 直接更新 store，这里只做结果清空
+watch(() => analysisStore.currentMode, () => {
+  analysisStore.resetResults()
 })
 
 // 监听分析范围切换
-watch(regionMode, (newMode: RegionMode) => {
-  analysisStore.setRegionMode(newMode)
+watch(() => analysisStore.regionMode, (newMode: RegionMode) => {
   if (newMode === 'full') {
     ElMessage.warning('已切换到全图分析模式')
   } else if (newMode === 'rect') {
@@ -182,7 +179,7 @@ const checkMaskExists = (): boolean => {
 const handleInverseMask = () => {
   if (!checkMaskExists()) return
   const newBinaryMask = inverseMask(binaryMaskMat.value!, undefined, analysisRegion.value)
-  updateMask(newBinaryMask)
+  analysisStore.updateMask(newBinaryMask)
   ElMessage.success('已反选')
 }
 
@@ -190,14 +187,14 @@ const handleInverseMask = () => {
  * 撤销
  */
 const handleUndo = () => {
-  undoMask()
+  analysisStore.undoMask()
 }
 
 /**
  * 还原
  */
 const handleRedo = () => {
-  redoMask()
+  analysisStore.redoMask()
 }
 
 /**
@@ -205,7 +202,7 @@ const handleRedo = () => {
  */
 const handleResetInitial = () => {
   if (!checkMaskExists()) return
-  resetMaskToInitial()
+  analysisStore.resetMaskToInitial()
 }
 
 // ==========================================
@@ -271,11 +268,11 @@ const handleDenoisePreview = () => {
       denoisePixelSize.value
     )
     // 更新可视化蒙版
-    const { width, height } = sourceImageSize.value
+    const { width, height } = analysisStore.sourceImageSize
     const newVisualMask = maskToVisual(previewMask, { width, height })
     // 替换可视化蒙版
-    const oldVisualMask = targetMaskMat.value
-    targetMaskMat.value = markRaw(newVisualMask)
+    const oldVisualMask = analysisStore.targetMaskMat
+    analysisStore.targetMaskMat = markRaw(newVisualMask)
     deleteMatSafe(oldVisualMask)
     deleteMatSafe(previewMask)
     ElMessage.success('预览完成')
@@ -304,7 +301,7 @@ const handleDenoiseConfirm = () => {
       denoisePixelSize.value
     )
     // 更新蒙版并保存历史
-    updateMask(newBinaryMask)
+    analysisStore.updateMask(newBinaryMask)
     denoiseDialogVisible.value = false
     ElMessage.success('区域去噪完成')
   } catch (error) {
@@ -316,7 +313,7 @@ const handleDenoiseConfirm = () => {
 watch(denoiseDialogVisible, (newVal) => {
   // 如果是关闭弹窗且有备份蒙版,则恢复
   if (!newVal && backupBinaryMask && !backupBinaryMask.empty()) {
-    updateMask(copyMat(backupBinaryMask), false) // 恢复蒙版
+    analysisStore.updateMask(copyMat(backupBinaryMask), false) // 恢复蒙版
     ElMessage.info('已取消去噪操作,恢复原蒙版')
   }
 })
@@ -340,7 +337,7 @@ const executeMaskOperation = (
     // 执行操作
     const newBinaryMask = operationFn(binaryMaskMat.value, kernelSize, analysisRegion.value)
     // 更新蒙版并保存历史
-    updateMask(newBinaryMask)
+    analysisStore.updateMask(newBinaryMask)
     ElMessage.success(`${operationName}完成`)
   } catch (error) {
     ElMessage.error(`${operationName}失败，请重试`)
