@@ -29,7 +29,7 @@ export {
   sizeSegmentation
 } from './analysis'
 
-// 形态学操作工具（预留）
+// 形态学操作工具
 export {
   denoiseRegion,
   fillHoles,

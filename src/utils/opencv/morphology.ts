@@ -105,12 +105,12 @@ export const fillHoles = (
       // 严格校验输入
       if (roi.empty() || roi.channels() !== 1) {
         const dst = new cv.Mat()
-        roi.copyTo(dst) // 【修复】用roi，不是src
+        roi.copyTo(dst) 
         return dst
       }
 
       const dst = new cv.Mat()
-      roi.copyTo(dst) // 【修复】用roi，不是src
+      roi.copyTo(dst) 
 
       // 1. 创建漫水填充临时蒙版
       const mask = new cv.Mat(dst.rows + 2, dst.cols + 2, cv.CV_8UC1, new cv.Scalar(0))

@@ -34,12 +34,10 @@ const activeNames = ref<string[]>(['1'])
 </script>
 
 <style scoped>
-/* ==================== 根容器 & 侧边栏主体【核心修复】==================== */
+/* ==================== 根容器 & 侧边栏主体 ==================== */
 .left-sidebar-wrapper {
-  /* 核心1：固定宽度，和原来完全一致 */
   width: 320px;
   height: 100%;
-  /* 核心2：禁止flex布局压缩，永远保持320px宽度 */
   flex-shrink: 0;
   /* 禁止横向溢出 */
   overflow: hidden;

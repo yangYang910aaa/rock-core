@@ -7,7 +7,7 @@ import os from 'node:os'
 // ESModule 下 __dirname 兼容
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
+ 
 // 主窗口实例
 let mainWindow: BrowserWindow | null = null
 function createWindow() {
@@ -77,6 +77,7 @@ function createWindow() {
     ipcMain.handle('generate-pdf', async (_event, htmlContent: string) => {
       if (!mainWindow) return null
       let pdfWindow: BrowserWindow | null = null
+      //获取系统临时文件夹路径（Windows 一般是 C:\Users\用户名\AppData\Local\Temp，Mac 是 /var/folders/...）
       const tmpPath = path.join(os.tmpdir(), `rock-core-report-${Date.now()}.html`)
       try {
         // 1. 写入临时HTML文件，避免数据URL长度限制和编码问题

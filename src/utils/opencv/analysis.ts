@@ -172,7 +172,7 @@ export const sizeSegmentation = (
 
     return { mask: finalMask,rockMask:rockMask.clone(), contours, hierarchy }
   } catch (error) {
-    console.error('❌ 粒度分析失败:', error)
+    console.error('粒度分析失败:', error)
     const emptyMask = new cv.Mat()
     const emptyContours = new cv.MatVector()
     const emptyHierarchy = new cv.Mat()

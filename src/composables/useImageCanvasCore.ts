@@ -104,15 +104,15 @@ export const useImageCanvasCore = () => {
       // 根据宽高比计算绘制位置尺寸,保持居中
       let drawWidth, drawHeight, drawX, drawY
       if (imgRatio > canvasRatio) {
-        //图片更宽，以宽度为准
+         // 图片相对更"扁"，以容器宽度为准，高度留白
         drawWidth = canvas.width * scale.value
-        drawHeight = (canvas.width / imgRatio) * scale.value // ✅ 修复
+        drawHeight = (canvas.width / imgRatio) * scale.value 
       } else {
-        //图片更高，以高度为准
+        // 图片相对更"高"，以容器高度为准，宽度留白
         drawHeight = canvas.height * scale.value
         drawWidth = (canvas.height * imgRatio) * scale.value
       }
-      //居中偏移
+      // 居中：计算偏移量
       drawX = (canvas.width - drawWidth) / 2
       drawY = (canvas.height - drawHeight) / 2
 

@@ -105,7 +105,7 @@
           </template>
           <!-- 粒度分析阈值 -->
            <template v-else-if="analysisStore.currentMode === 'size'">
-            <!-- 【修复1】label-width从10px改成110px，和整体风格统一 -->
+            <!-- label-width从10px改成110px，和整体风格统一 -->
             <el-form label-width="110px" size="default" class="panel-form">
               <el-form-item label="岩石亮度阈值">
                 <el-slider v-model="analysisStore.sizeThreshold.rockBrightnessThreshold" :min="0" :max="255" class="panel-slider" />
