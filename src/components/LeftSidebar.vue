@@ -25,9 +25,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import ScalePanel from './sidebar/ScalePanel.vue'
-import PreprocessPanel from './sidebar/PreprocessPanel.vue'
-import AnalysisPanel from './sidebar/AnalysisPanel.vue'
+import ScalePanel from './leftSidebar/ScalePanel.vue'
+import PreprocessPanel from './leftSidebar/PreprocessPanel.vue'
+import AnalysisPanel from './leftSidebar/AnalysisPanel.vue'
 
 // 折叠面板状态（父组件统一管理）
 const activeNames = ref<string[]>(['1'])
