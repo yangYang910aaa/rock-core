@@ -5,6 +5,8 @@ import type {HoleResults,CrackResults,SizeResults,CoreBasicInfo} from '@/stores/
  * 分析参数
  */
 interface AnalysisParams{
+    fillingMaterial: any;
+    validity: any;
     mode:'hole'|'crack'|'size'
     regionMode:'full'|'rect'
     scaleType:'macro'|'micro'
@@ -21,10 +23,15 @@ export const exportToExcel = async (
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('岩心分析报告')
 
-  // 1. 设置列宽
+  // 1. 设置列宽：A/B 兼顾主内容（标签+值）和逐孔表（序号+直径），不宜过宽
+  // C-F 仅用于逐孔详情，按内容长度分配
   worksheet.columns = [
-    { width: 22 },
-    { width: 32 }
+    { width: 14 },
+    { width: 18 },
+    { width: 14 },
+    { width: 16 },
+    { width: 18 },
+    { width: 14 },
   ]
 
   // 2. 准备通用变量
@@ -200,13 +207,24 @@ export const exportToExcel = async (
     currentRow++
 
     const headerRow = worksheet.addRow(['序号', '直径(mm)', '面积(mm²)', '分类', '有效性', '充填物'])
-    headerRow.eachCell(c => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } } })
+    headerRow.eachCell((c) => {
+      c.font = { bold: true }
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } }
+      c.alignment = { horizontal: 'center', vertical: 'middle' }
+    })
     currentRow++
 
     const catL: Record<string,string> = { large:'大洞', medium:'中洞', small:'小洞', pinhole:'针孔/溶孔' }
     const valL: Record<string,string> = { effective:'有效', semiEffective:'较有效', ineffective:'无效' }
     ;(results as any).holeList.forEach((h: any) => {
-      worksheet.addRow([h.index, h.diameter.toFixed(3), h.area.toFixed(4), catL[h.category]||'', valL[h.validity]||'', fillingMaterialLabels[h.fillingMaterial]||''])
+      const dataRow = worksheet.addRow([h.index, h.diameter.toFixed(3), h.area.toFixed(4), catL[h.category]||'', valL[h.validity]||'', fillingMaterialLabels[h.fillingMaterial]||''])
+      // 序号和直径居中，所有列垂直居中
+      dataRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(4).alignment = { vertical: 'middle' }
+      dataRow.getCell(5).alignment = { vertical: 'middle' }
+      dataRow.getCell(6).alignment = { vertical: 'middle' }
       currentRow++
     })
   }
@@ -275,7 +293,25 @@ const generateHoleListHtml = (holeList: any[], unit: string) => {
     </tr>`
   })
   return `<h2>孔洞详情</h2>
-  <table>
+  <style>
+    .hole-table { table-layout: fixed; }
+    .hole-table th, .hole-table td {
+      padding: 6px 8px; overflow: hidden; text-overflow: ellipsis;
+    }
+    .hole-table td:first-child { width: 36px; text-align: center; font-weight: normal; background: none; }
+    .hole-table td:nth-child(2) { width: 96px; text-align: center; }
+    .hole-table td:nth-child(3) { width: 110px; }
+    .hole-table td:nth-child(4) { width: 80px; }
+    .hole-table td:nth-child(5) { width: 110px; }
+    .hole-table td:nth-child(6) { width: 100px; }
+    .hole-table th:nth-child(1) { width: 36px; }
+    .hole-table th:nth-child(2) { width: 96px; }
+    .hole-table th:nth-child(3) { width: 110px; }
+    .hole-table th:nth-child(4) { width: 80px; }
+    .hole-table th:nth-child(5) { width: 110px; }
+    .hole-table th:nth-child(6) { width: 100px; }
+  </style>
+  <table class="hole-table">
     <thead><tr>
       <th>#</th><th>直径</th><th>面积</th><th>分类</th><th>有效性</th><th>充填物</th>
     </tr></thead>
@@ -344,7 +380,7 @@ export const generateReportHtml = (
       `
   }
 
-  return `<!DOCTYPE html>
+  let reportHtml = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -357,7 +393,11 @@ export const generateReportHtml = (
     }
     h1 {
       text-align: center; font-size: 24px; font-weight: bold;
-      color: #409EFF; margin-bottom: 30px;
+      color: #409EFF; margin-bottom: 4px;
+    }
+    .report-time {
+      text-align: center; font-size: 12px; color: #999;
+      margin-bottom: 24px;
     }
     h2 {
       font-size: 16px; font-weight: bold; margin: 25px 0 12px 0;
@@ -373,13 +413,11 @@ export const generateReportHtml = (
     td:first-child {
       width: 30%; font-weight: 500; background-color: #F5F7FA;
     }
-    footer {
-      margin-top: 30px; text-align: center; font-size: 12px; color: #666;
-    }
   </style>
 </head>
 <body>
   <h1>岩心${modeName}分析报告</h1>
+  <p class="report-time">岩心分析报告 - 生成时间：${new Date().toLocaleString()}</p>
   <h2>岩心基础信息</h2>
   <table>
     <tr><td>井号</td><td>${basicInfo.wellNo}</td></tr>
@@ -398,13 +436,11 @@ export const generateReportHtml = (
   <table>
     ${resultHtml}
   </table>
-  <footer>岩心分析报告 - 生成时间：${new Date().toLocaleString()}</footer>
 </body>
 </html>`
-  // 追加逐孔详情表（仅孔洞模式有数据）
   if (params.mode === 'hole' && (results as any).holeList?.length > 0) {
     const holeListHtml = generateHoleListHtml((results as any).holeList, unit)
-    return reportHtml.replace('</body>', `${holeListHtml}</body>`)
+    reportHtml = reportHtml.replace('</body>', `${holeListHtml}</body>`)
   }
   return reportHtml
 }
@@ -460,7 +496,16 @@ export const generateExcelPreviewHtml = (
       <tr><td>岩石颗粒占比</td><td>${res.rockParticleRate.toFixed(2)} %</td></tr>`
   }
 
-  return `<!DOCTYPE html>
+  // 属性标注行
+  let attrHtml = ''
+  if (params.validity) {
+    attrHtml += `<tr><td>有效性评价</td><td>${validityLabels[params.validity] || params.validity}</td></tr>`
+  }
+  if (params.fillingMaterial) {
+    attrHtml += `<tr><td>充填物类型</td><td>${fillingMaterialLabels[params.fillingMaterial] || params.fillingMaterial}</td></tr>`
+  }
+
+  let html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><title>Excel预览</title>
 <style>
@@ -497,6 +542,19 @@ export const generateExcelPreviewHtml = (
     text-align: center; font-size: 11px; color: #909399;
     padding: 12px 0; background: #fafafa; border-top: 1px solid #ebeef5;
   }
+  /* 逐孔详情表的列宽覆盖 */
+  .hole-table td:first-child { width: 36px; font-weight: normal; background: none; text-align: center; }
+  .hole-table td:nth-child(2) { width: 96px; text-align: center; }
+  .hole-table td:nth-child(3) { width: 110px; }
+  .hole-table td:nth-child(4) { width: 80px; }
+  .hole-table td:nth-child(5) { width: 110px; }
+  .hole-table td:nth-child(6) { width: 100px; }
+  .hole-table th:nth-child(1) { width: 36px; }
+  .hole-table th:nth-child(2) { width: 96px; }
+  .hole-table th:nth-child(3) { width: 110px; }
+  .hole-table th:nth-child(4) { width: 80px; }
+  .hole-table th:nth-child(5) { width: 110px; }
+  .hole-table th:nth-child(6) { width: 100px; }
 </style></head>
 <body>
   <div class="excel-sheet">
@@ -514,6 +572,7 @@ export const generateExcelPreviewHtml = (
       <tr><td>分析模式</td><td>${modeText}</td></tr>
       <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
       <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
+      ${attrHtml}
     </table>
     <div class="section-header">统计结果</div>
     <table>${resultRows}</table>
@@ -523,14 +582,11 @@ export const generateExcelPreviewHtml = (
   // 追加逐孔详情表（仅孔洞模式有数据）
   if (params.mode === 'hole' && (results as any).holeList?.length > 0) {
     const holeListHtml = generateHoleListHtml((results as any).holeList, unit)
-    return html.replace('</body>', `${holeListHtml}</body>`)
+    html = html.replace('</body>', `${holeListHtml}</body>`)
   }
   return html
 }
 
-/**
- * 生成PDF报告
- */
 export const exportToPDF = async (
   basicInfo: CoreBasicInfo,
   params: AnalysisParams,
