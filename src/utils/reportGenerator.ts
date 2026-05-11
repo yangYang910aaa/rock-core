@@ -9,8 +9,6 @@ interface AnalysisParams{
     regionMode:'full'|'rect'
     scaleType:'macro'|'micro'
     threshold:any
-    validity?:string
-    fillingMaterial?:string
 }
 /**
  * 生成Excel报告
@@ -183,15 +181,35 @@ export const exportToExcel = async (
   // 写入统计结果
   resultRows.forEach(rowData => {
     const row = worksheet.addRow(rowData)
-    // 标签列样式统一
     row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } }
     row.getCell(1).font = { bold: true }
-    // 所有单元格左对齐+垂直居中
     row.eachCell(cell => {
       cell.alignment = { horizontal: 'left', vertical: 'middle' }
     })
     currentRow++
   })
+
+  // 逐孔详情表（仅孔洞模式）
+  if (params.mode === 'hole' && (results as any).holeList?.length > 0) {
+    currentRow++
+    const hlCell = worksheet.getCell(`A${currentRow}`)
+    hlCell.value = '孔洞详情'
+    hlCell.font = { bold: true, size: 16 }
+    hlCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F9FF' } }
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`)
+    currentRow++
+
+    const headerRow = worksheet.addRow(['序号', '直径(mm)', '面积(mm²)', '分类', '有效性', '充填物'])
+    headerRow.eachCell(c => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } } })
+    currentRow++
+
+    const catL: Record<string,string> = { large:'大洞', medium:'中洞', small:'小洞', pinhole:'针孔/溶孔' }
+    const valL: Record<string,string> = { effective:'有效', semiEffective:'较有效', ineffective:'无效' }
+    ;(results as any).holeList.forEach((h: any) => {
+      worksheet.addRow([h.index, h.diameter.toFixed(3), h.area.toFixed(4), catL[h.category]||'', valL[h.validity]||'', fillingMaterialLabels[h.fillingMaterial]||''])
+      currentRow++
+    })
+  }
 
   // ==========================================
   // 全局样式统一：所有单元格加边框
@@ -238,6 +256,33 @@ const fillingMaterialLabels: Record<string, string> = {
   quartz: '石英',
 }
 
+/** 生成逐孔详情 HTML 表格（PDF 和 Excel 预览共用） */
+const generateHoleListHtml = (holeList: any[], unit: string) => {
+  if (!holeList || holeList.length === 0) return ''
+  const categoryLabels: Record<string,string> = { large:'大洞', medium:'中洞', small:'小洞', pinhole:'针孔/溶孔' }
+  const validityLabels2: Record<string,string> = { effective:'有效', semiEffective:'较有效', ineffective:'无效' }
+  const materialLabels: Record<string,string> = fillingMaterialLabels
+
+  let rows = ''
+  holeList.forEach(h => {
+    rows += `<tr>
+      <td>${h.index}</td>
+      <td>${h.diameter.toFixed(3)} ${unit}</td>
+      <td>${h.area.toFixed(4)} ${unit}²</td>
+      <td>${categoryLabels[h.category] || ''}</td>
+      <td>${validityLabels2[h.validity] || ''}</td>
+      <td>${materialLabels[h.fillingMaterial] || ''}</td>
+    </tr>`
+  })
+  return `<h2>孔洞详情</h2>
+  <table>
+    <thead><tr>
+      <th>#</th><th>直径</th><th>面积</th><th>分类</th><th>有效性</th><th>充填物</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`
+}
+
 /**
  * 生成报告HTML内容（PDF和预览共用）
  */
@@ -260,15 +305,6 @@ export const generateReportHtml = (
   } else {
     modeName = '粒度'
     modeText = '粒度分析'
-  }
-
-  // 属性标注行（插入到分析参数表格末尾，未选择时为空不显示）
-  let attrHtml = ''
-  if (params.validity) {
-    attrHtml += `<tr><td>有效性评价</td><td>${validityLabels[params.validity] || params.validity}</td></tr>`
-  }
-  if (params.fillingMaterial) {
-    attrHtml += `<tr><td>充填物类型</td><td>${fillingMaterialLabels[params.fillingMaterial] || params.fillingMaterial}</td></tr>`
   }
 
   if (params.mode === 'hole') {
@@ -357,7 +393,6 @@ export const generateReportHtml = (
     <tr><td>分析模式</td><td>${modeText}</td></tr>
     <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
     <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
-    ${attrHtml}
   </table>
   <h2>统计结果</h2>
   <table>
@@ -366,6 +401,12 @@ export const generateReportHtml = (
   <footer>岩心分析报告 - 生成时间：${new Date().toLocaleString()}</footer>
 </body>
 </html>`
+  // 追加逐孔详情表（仅孔洞模式有数据）
+  if (params.mode === 'hole' && (results as any).holeList?.length > 0) {
+    const holeListHtml = generateHoleListHtml((results as any).holeList, unit)
+    return reportHtml.replace('</body>', `${holeListHtml}</body>`)
+  }
+  return reportHtml
 }
 
 /**
@@ -417,15 +458,6 @@ export const generateExcelPreviewHtml = (
       <tr><td>细颗粒占比</td><td>${res.fineParticleRatio.toFixed(2)} %</td></tr>
       <tr><td>颗粒均匀度</td><td>${res.particleUniformity.toFixed(4)}</td></tr>
       <tr><td>岩石颗粒占比</td><td>${res.rockParticleRate.toFixed(2)} %</td></tr>`
-  }
-
-  // 属性标注行（Excel预览用，插入到分析参数表格末尾）
-  let attrHtml = ''
-  if (params.validity) {
-    attrHtml += `<tr><td>有效性评价</td><td>${validityLabels[params.validity] || params.validity}</td></tr>`
-  }
-  if (params.fillingMaterial) {
-    attrHtml += `<tr><td>充填物类型</td><td>${fillingMaterialLabels[params.fillingMaterial] || params.fillingMaterial}</td></tr>`
   }
 
   return `<!DOCTYPE html>
@@ -482,13 +514,18 @@ export const generateExcelPreviewHtml = (
       <tr><td>分析模式</td><td>${modeText}</td></tr>
       <tr><td>分析范围</td><td>${params.regionMode === 'full' ? '全图分析' : '局部分析'}</td></tr>
       <tr><td>标尺类型</td><td>${params.scaleType === 'macro' ? '宏观(mm)' : '微观(μm)'}</td></tr>
-    ${attrHtml}
     </table>
     <div class="section-header">统计结果</div>
     <table>${resultRows}</table>
     <div class="footer-bar">Excel 报告预览 — ${new Date().toLocaleString()}</div>
   </div>
 </body></html>`
+  // 追加逐孔详情表（仅孔洞模式有数据）
+  if (params.mode === 'hole' && (results as any).holeList?.length > 0) {
+    const holeListHtml = generateHoleListHtml((results as any).holeList, unit)
+    return html.replace('</body>', `${holeListHtml}</body>`)
+  }
+  return html
 }
 
 /**

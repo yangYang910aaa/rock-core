@@ -45,6 +45,16 @@ export interface SizeThreshold{
     fineSensitivity:number
 }
 
+// 单个孔洞详情（用于逐孔列表展示和编辑）
+export interface HoleInfo{
+    index:number            // 孔洞序号（从1开始）
+    diameter:number         // 等效直径 mm
+    area:number             // 面积 mm²
+    category:'large'|'medium'|'small'|'pinhole'
+    validity:ValidityType   // 有效性评价
+    fillingMaterial:FillingMaterial // 充填物类型
+}
+
 // 孔洞分析结果
 export interface HoleResults{
     totalCount:number
@@ -53,11 +63,11 @@ export interface HoleResults{
     maxDiameter:number
     minDiameter:number
     faceRate:number
-    // 孔洞分类统计（按直径 mm）
-    largeCount:number   // >10mm 大洞
-    mediumCount:number  // 5~10mm 中洞
-    smallCount:number   // 1~5mm 小洞
-    pinholeCount:number // <1mm 针孔/溶孔
+    largeCount:number
+    mediumCount:number
+    smallCount:number
+    pinholeCount:number
+    holeList:HoleInfo[]   // 逐孔详情列表
 }
 
 // 裂缝分析结果
@@ -106,12 +116,6 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const reportPreviewVisible=ref<boolean>(false)
 
    // ----
-   // 属性标注状态（有效性评价 + 充填物类型）
-   // ----
-    const validity=ref<ValidityType>('')
-    const fillingMaterial=ref<FillingMaterial>('')
-
-   // ----
    // 岩心基础信息状态
    // ----
     const coreBasicInfo=ref<CoreBasicInfo>({
@@ -143,7 +147,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
    // ----
    // 分析结果状态
    // ----
-    const holeResults=ref<HoleResults>({totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0})
+    const holeResults=ref<HoleResults>({totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]})
     const crackResults=ref<CrackResults>({totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0})
     const sizeResults=ref<SizeResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0})
 
@@ -179,7 +183,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         analysisRegion.value={x:0,y:0,width:0,height:0}
     }
     const resetResults=()=>{
-        holeResults.value={totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0}
+        holeResults.value={totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]}
         crackResults.value={totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0}
         sizeResults.value={totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0}
     }
@@ -225,8 +229,6 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         isSelectingRegion.value=false
         isAnalyzing.value=false
         showMaskOverlay.value=true
-        validity.value=''
-        fillingMaterial.value=''
         resetAnalysisRegion()
         resetResults()
         resetThresholds()
@@ -492,8 +494,6 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,
-    validity,
-    fillingMaterial,
     clearTargetMask,
     saveMaskToHistory,
     undoMask,

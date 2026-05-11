@@ -18,7 +18,7 @@
         </template>
       </el-dropdown>
       <el-button type="warning" block class="panel-btn" @click="handleReset"><el-icon><Refresh /></el-icon>重置分析</el-button>
-      <el-button type="primary" block class="panel-btn" @click="handleStartAnalysis"><el-icon><Search /></el-icon>开始分析</el-button>
+      <el-button type="primary" block class="panel-btn" @click="handleStartAnalysis" :loading="analysisStore.isAnalyzing"><el-icon><Search /></el-icon>开始分析</el-button>
       <div class="mask-toggle-row">
         <el-switch v-model="analysisStore.showMaskOverlay" size="small" />
         <span class="mask-toggle-label">是否显示蒙版</span>
@@ -165,28 +165,49 @@
             </el-descriptions>
           </template>
 
-          <!-- 属性标注：岩心分析完成后可标记有效性和充填物，报告会同步 -->
-          <el-form label-width="90px"  class="panel-form" style="margin-top:16px;">
-            <el-form-item label="有效性评价">
-              <el-select v-model="analysisStore.validity" placeholder="请选择" clearable style="width:100%;">
-                <el-option label="有效（未充填）" value="effective" />
-                <el-option label="较有效（半充填）" value="semiEffective" />
-                <el-option label="无效（全充填）" value="ineffective" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="充填物类型">
-              <el-select v-model="analysisStore.fillingMaterial" placeholder="请选择" clearable style="width:100%;">
-                <el-option label="泥质" value="mud" />
-                <el-option label="方解石" value="calcite" />
-                <el-option label="白云石" value="dolomite" />
-                <el-option label="沥青" value="asphalt" />
-                <el-option label="石膏" value="gypsum" />
-                <el-option label="黄铁矿" value="pyrite" />
-                <el-option label="高岭石" value="kaolinite" />
-                <el-option label="石英" value="quartz" />
-              </el-select>
-            </el-form-item>
-          </el-form>
+          <!-- 逐孔详情列表（仅孔洞模式）：可独立设置每个孔洞的有效性和充填物 -->
+          <div v-if="analysisStore.currentMode === 'hole' && analysisStore.holeResults.holeList.length > 0" class="hole-list-section">
+            <div class="group-title" style="margin-top:16px; font-size:14px; font-weight:bold;">孔洞详情</div>
+            <el-table :data="analysisStore.holeResults.holeList" size="small" max-height="280" stripe>
+              <el-table-column prop="index" label="#" width="40" />
+              <el-table-column prop="diameter" label="直径" width="80">
+                <template #default="{ row }">{{ (row.diameter * unitScale).toFixed(3) }} {{ currentUnit }}</template>
+              </el-table-column>
+              <el-table-column prop="area" label="面积" width="90">
+                <template #default="{ row }">{{ (row.area * unitScale * unitScale).toFixed(4) }} {{ currentUnit }}²</template>
+              </el-table-column>
+              <el-table-column prop="category" label="分类" width="80">
+                <template #default="{ row }">
+                  <el-tag :type="categoryTagType(row.category)" size="small">{{ categoryLabel(row.category) }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="有效性" width="160">
+                <template #default="{ row }">
+                  <select v-model="row.validity" class="native-select">
+                    <option value="">-</option>
+                    <option value="effective">有效（未充填）</option>
+                    <option value="semiEffective">较有效（半充填）</option>
+                    <option value="ineffective">无效（全充填）</option>
+                  </select>
+                </template>
+              </el-table-column>
+              <el-table-column label="充填物" width="130">
+                <template #default="{ row }">
+                  <select v-model="row.fillingMaterial" class="native-select">
+                    <option value="">-</option>
+                    <option value="mud">泥质</option>
+                    <option value="calcite">方解石</option>
+                    <option value="dolomite">白云石</option>
+                    <option value="asphalt">沥青</option>
+                    <option value="gypsum">石膏</option>
+                    <option value="pyrite">黄铁矿</option>
+                    <option value="kaolinite">高岭石</option>
+                    <option value="quartz">石英</option>
+                  </select>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
         </el-collapse-item>
       </el-collapse>
     </div>
@@ -215,6 +236,16 @@ const handleDropdownCommand = (command: string) => {
     handleExportReport(command as 'excel' | 'pdf')
   }
 }
+
+// 孔洞分类标签映射
+const categoryLabel = (cat: string) => {
+  const map: Record<string, string> = { large: '大洞', medium: '中洞', small: '小洞', pinhole: '针孔' }
+  return map[cat] || cat
+}
+const categoryTagType = (cat: string) => {
+  const map: Record<string, string> = { large: 'danger', medium: 'warning', small: 'success', pinhole: 'info' }
+  return map[cat] || ''
+}
 const {
   targetMaskMat,
   currentMode,
@@ -242,7 +273,7 @@ let previewDebounceTimer: NodeJS.Timeout | null = null
 let isResetting = ref(false)
 // 防抖函数
 const debouncePreview = () => {
-  if (isResetting.value) {
+  if (isResetting.value || analysisStore.isAnalyzing) {
     return
   }
   if (!imageStore.processedImageDataUrl) return
@@ -295,8 +326,6 @@ const handleStartAnalysis=async()=>{
   }
   analysisStore.isAnalyzing=true
   try {
-    // 点击开始分析时，才显示预览蒙版
-    debouncePreview()
     let threshold
     switch(currentMode.value){
       case 'hole':
@@ -516,5 +545,22 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
 
 .panel-content::-webkit-scrollbar-track {
   background-color: #f5f7fa;
+}
+
+/* 原生 select 替代 el-select，极轻量渲染 */
+.native-select {
+  width: 100%;
+  height: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+  color: #606266;
+  outline: none;
+  cursor: pointer;
+}
+.native-select:focus {
+  border-color: #409eff;
 }
 </style>

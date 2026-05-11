@@ -14,6 +14,7 @@ import type {
   CrackThreshold,
   SizeThreshold,
   HoleResults,
+  HoleInfo,
   CrackResults,
   SizeResults,
 } from '@/stores/analysisStore'
@@ -150,6 +151,9 @@ export const executeFullAnalysis = async (
   try {
     ElMessage.info('开始分析，请稍候...')
     const { src, width, height } = await loadImageToMat(imageDataUrl)
+    // 保存原图全图尺寸到Store，后续可视化蒙版生成需要
+    const analysisStore = useAnalysisStore()
+    analysisStore.sourceImageSize = { width, height }
     let results: HoleResults | CrackResults | SizeResults | null = null
     let finalBinaryMask: cv.Mat | null = null
 
@@ -167,35 +171,48 @@ export const executeFullAnalysis = async (
         let maxDiameter = 0
         let minDiameter = Infinity
         const diameters: number[] = []
+        const holeList: HoleInfo[] = []
 
         for (let i = 0; i < contours.size(); i++) {
           const contour = contours.get(i)
           const area = cv.contourArea(contour)
-          if (area < 10) continue // 过滤极小噪点
+          if (area < 10) continue
 
-          // 计算等效直径
           const diameter = Math.sqrt(4 * area / Math.PI) * pixelToMm
           totalArea += area * pixelToMm * pixelToMm
           diameters.push(diameter)
           maxDiameter = Math.max(maxDiameter, diameter)
           minDiameter = Math.min(minDiameter, diameter)
+
+          // 分类
+          let category: HoleInfo['category'] = 'pinhole'
+          if (diameter > 10) category = 'large'
+          else if (diameter >= 5) category = 'medium'
+          else if (diameter >= 1) category = 'small'
+
+          holeList.push({
+            index: holeList.length + 1,
+            diameter: Number(diameter.toFixed(4)),
+            area: Number((area * pixelToMm * pixelToMm).toFixed(4)),
+            category,
+            validity: '',
+            fillingMaterial: '',
+          })
         }
 
         // 计算孔洞分类统计
         let largeCount=0, mediumCount=0, smallCount=0, pinholeCount=0
-        for (const d of diameters) {
-          if (d > 10) largeCount++
-          else if (d >= 5) mediumCount++
-          else if (d >= 1) smallCount++
+        for (const h of holeList) {
+          if (h.category === 'large') largeCount++
+          else if (h.category === 'medium') mediumCount++
+          else if (h.category === 'small') smallCount++
           else pinholeCount++
         }
 
-        // 计算分析区域总面积
         const regionArea = region.width > 0
           ? region.width * region.height * pixelToMm * pixelToMm
           : width * height * pixelToMm * pixelToMm
 
-        // 组装结果
         results = {
           totalCount: diameters.length,
           totalArea: Number(totalArea.toFixed(4)),
@@ -206,7 +223,8 @@ export const executeFullAnalysis = async (
           largeCount,
           mediumCount,
           smallCount,
-          pinholeCount
+          pinholeCount,
+          holeList
         } as HoleResults
 
         // 释放内存
@@ -365,11 +383,9 @@ export const executeFullAnalysis = async (
       }
     }
 
-    // 更新 Store 中的二值蒙版（用于悬停检测）
+    // 更新 Store 中的蒙版（二值蒙版 + 可视化蒙版）
     if (finalBinaryMask && results) {
-      const analysisStore = useAnalysisStore()
-      
-      // 创建全图尺寸的二值蒙版
+      // 二值蒙版：用于悬停检测和形态学二次编辑
       const fullBinaryMask = new cv.Mat(height, width, cv.CV_8UC1, new cv.Scalar(0))
       if (region.width > 0 && region.height > 0) {
         const rect = new cv.Rect(
@@ -385,13 +401,16 @@ export const executeFullAnalysis = async (
         finalBinaryMask.copyTo(fullBinaryMask)
       }
 
-      // 更新 Store 中的蒙版
       const oldBinaryMask = analysisStore.binaryMaskMat
-      const newBinaryMask = markRaw(copyMat(fullBinaryMask))
-      analysisStore.binaryMaskMat = newBinaryMask
-      
-      // 释放旧蒙版
+      analysisStore.binaryMaskMat = markRaw(copyMat(fullBinaryMask))
       deleteMatSafe(oldBinaryMask)
+
+      // 可视化 RGBA 蒙版：用于画布红色叠加显示
+      const newVisualMask = maskToVisual(fullBinaryMask, { width, height }, region)
+      const oldVisualMask = analysisStore.targetMaskMat
+      analysisStore.targetMaskMat = markRaw(newVisualMask)
+      deleteMatSafe(oldVisualMask)
+
       fullBinaryMask.delete()
     }
 
