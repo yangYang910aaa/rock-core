@@ -186,6 +186,7 @@
       destroy-on-close
     >
       <!-- 筛选栏 -->
+        <!-- 筛选栏：三个维度自由组合，实时过滤孔洞列表 -->
       <div class="hole-filter-bar">
         <select v-model="categoryFilter" class="native-select" style="width:110px;">
           <option value="">全部分类</option>
@@ -284,23 +285,28 @@ const handleDropdownCommand = (command: string) => {
   }
 }
 
-// 孔洞详情弹窗 + 筛选
+// ---- 孔洞详情弹窗 + 筛选 ----
 const holeDetailVisible = ref(false)
 const openHoleDetail = () => {
+  // 打开弹窗时清空上次筛选条件，避免残留状态
   categoryFilter.value = ''
   validityFilter.value = ''
   materialFilter.value = ''
   holeDetailVisible.value = true
 }
+  // 三个筛选维度，可自由组合（空字符串 = 全部）
 const categoryFilter = ref('')
 const validityFilter = ref('')
 const materialFilter = ref('')
 
+  // 按分类/有效性/充填物组合过滤（unset = 未填写，快速定位）
 const filteredHoleList = computed(() => {
   let list = analysisStore.holeResults.holeList
+  //根据分类:大洞/中洞/小洞/针孔筛选
   if (categoryFilter.value) {
     list = list.filter(h => h.category === categoryFilter.value)
   }
+  //根据有效性:有效（未充填）/较有效（半充填）/无效（全充填）筛选
   if (validityFilter.value) {
     if (validityFilter.value === 'unset') {
       list = list.filter(h => !h.validity)
@@ -308,6 +314,7 @@ const filteredHoleList = computed(() => {
       list = list.filter(h => h.validity === validityFilter.value)
     }
   }
+  //根据充填物:泥质/方解石/白云石/沥青/石膏/黄铁矿/高岭石/石英筛选
   if (materialFilter.value) {
     if (materialFilter.value === 'unset') {
       list = list.filter(h => !h.fillingMaterial)
