@@ -184,6 +184,14 @@ export const executeFullAnalysis = async (
           maxDiameter = Math.max(maxDiameter, diameter)
           minDiameter = Math.min(minDiameter, diameter)
 
+          // 计算轮廓中心（图像像素坐标）
+          const moments = cv.moments(contour)
+          let cx = 0, cy = 0
+          if (moments.m00 > 0) {
+            cx = Math.round(moments.m10 / moments.m00)
+            cy = Math.round(moments.m01 / moments.m00)
+          }
+
           // 分类
           let category: HoleInfo['category'] = 'pinhole'
           if (diameter > 10) category = 'large'
@@ -194,6 +202,8 @@ export const executeFullAnalysis = async (
             index: holeList.length + 1,
             diameter: Number(diameter.toFixed(4)),
             area: Number((area * pixelToMm * pixelToMm).toFixed(4)),
+            centerX: cx,
+            centerY: cy,
             category,
             validity: '',
             fillingMaterial: '',

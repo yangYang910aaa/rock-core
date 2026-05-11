@@ -50,6 +50,8 @@ export interface HoleInfo{
     index:number            // 孔洞序号（从1开始）
     diameter:number         // 等效直径 mm
     area:number             // 面积 mm²
+    centerX:number          // 孔洞中心 X（图像像素坐标）
+    centerY:number          // 孔洞中心 Y（图像像素坐标）
     category:'large'|'medium'|'small'|'pinhole'
     validity:ValidityType   // 有效性评价
     fillingMaterial:FillingMaterial // 充填物类型
@@ -165,6 +167,16 @@ export const useAnalysisStore=defineStore('analysis',()=>{
       centerY: number
     } | null>(null)
 
+    // 定位状态（"查看孔洞详情"弹窗中点击"定位"触发，持久保持）
+    const locatedHoleIndex = ref<number | null>(null)
+    const locatedHoleInfo = ref<{
+      index: number
+      diameter: number
+      area: number
+      centerX: number
+      centerY: number
+    } | null>(null)
+
     // ----
     // 基础操作
     // ----
@@ -222,6 +234,18 @@ export const useAnalysisStore=defineStore('analysis',()=>{
       hoveredHoleInfo.value = null
       hoveredHoleIndex.value = null
     }
+
+    // 定位孔洞（弹窗"定位"按钮触发，持久保持）
+    const setLocatedHole = (info: {
+      index: number; diameter: number; area: number; centerX: number; centerY: number
+    }) => {
+      locatedHoleInfo.value = info
+      locatedHoleIndex.value = info.index
+    }
+    const clearLocatedHole = () => {
+      locatedHoleInfo.value = null
+      locatedHoleIndex.value = null
+    }
     
     const resetAll=()=>{
         currentMode.value='hole'
@@ -234,6 +258,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         resetThresholds()
         resetCoreBasicInfo()
         disposeMasks()
+        clearHoveredHole()
+        clearLocatedHole()
     }
 
     // ----
@@ -480,6 +506,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     // 悬停状态
     hoveredHoleIndex,
     hoveredHoleInfo,
+    locatedHoleIndex,
+    locatedHoleInfo,
     // 方法
     setMode,
     setRegionMode,
@@ -491,6 +519,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     setCoreBasicInfo,
     setHoveredHoleInfo,
     clearHoveredHole,
+    setLocatedHole,
+    clearLocatedHole,
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,

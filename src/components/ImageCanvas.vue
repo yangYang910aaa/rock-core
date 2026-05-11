@@ -8,24 +8,34 @@
 
         <!-- 图片显示区域 -->
         <div class="image-container" v-else>
-            <!-- Tooltip -->
+            <!-- Tooltip：定位态始终显示，悬停态跟随鼠标 -->
             <Transition name="tooltip">
               <div
-                v-if="tooltipVisible && analysisStore.hoveredHoleInfo"
+                v-if="tooltipVisible && tooltipData"
                 class="hole-tooltip"
+                :class="{ 'located-tooltip': !!analysisStore.locatedHoleInfo }"
                 :style="{ left: tooltipX + 'px', top: tooltipY + 'px' }"
               >
-                <div class="tooltip-title">{{ tooltipTitle }} #{{ analysisStore.hoveredHoleInfo.index }}</div>
+                <div class="tooltip-title">
+                  {{ tooltipTitle }} #{{ tooltipData.index }}
+                  <span v-if="analysisStore.locatedHoleInfo" class="locate-badge">已定位</span>
+                </div>
                 <div class="tooltip-content">
                   <div class="tooltip-item">
                     <span class="tooltip-label">直径:</span>
-                    <span class="tooltip-value">{{ analysisStore.hoveredHoleInfo.diameter.toFixed(3) }} {{ currentUnit }}</span>
+                    <span class="tooltip-value">{{ tooltipData.diameter.toFixed(3) }} {{ currentUnit }}</span>
                   </div>
                   <div class="tooltip-item">
                     <span class="tooltip-label">面积:</span>
-                    <span class="tooltip-value">{{ analysisStore.hoveredHoleInfo.area.toFixed(4) }} {{ currentUnit }}²</span>
+                    <span class="tooltip-value">{{ tooltipData.area.toFixed(4) }} {{ currentUnit }}²</span>
                   </div>
                 </div>
+                <el-button
+                  v-if="analysisStore.locatedHoleInfo"
+                  size="small" type="danger" plain
+                  class="locate-dismiss-btn"
+                  @click.stop="analysisStore.clearLocatedHole()"
+                >取消定位</el-button>
               </div>
             </Transition>
             
@@ -51,6 +61,7 @@
                     ref="targetMaskCanvasRef"
                     class="mask-canvas target-mask"
                     v-show="analysisStore.showMaskOverlay"
+                    @click.stop="handleCanvasClick"
                 />
             </div>
 
@@ -108,6 +119,11 @@ const currentUnit = computed(() => {
 const unitScale = computed(() => {
   return scaleType.value === 'macro' ? 1 : 1000
 })
+// Tooltip 数据源：定位态优先，否则取悬停态
+const tooltipData = computed(() => {
+  return analysisStore.locatedHoleInfo || analysisStore.hoveredHoleInfo
+})
+
 const tooltipTitle=computed(()=>{
   const mode=analysisStore.currentMode
   switch(mode){
@@ -201,14 +217,15 @@ const handleMouseUp = () => {
 }
 
 const handleMouseLeave = () => {
-  // 鼠标离开时清除悬停状态
+  if (analysisStore.locatedHoleInfo) return  // 定位态下不清理
   analysisStore.clearHoveredHole()
   tooltipVisible.value = false
 }
 
-// 检测鼠标悬停的孔洞
+// 检测鼠标悬停的孔洞（定位态下跳过，不干扰定位 Tooltip 和高亮）
 const detectHoveredHoleOnCanvas = (canvasX: number, canvasY: number, rect: DOMRect) => {
-  // 获取二值蒙版
+  if (analysisStore.locatedHoleInfo) return
+
   const binaryMask = analysisStore.binaryMaskMat
   if (!binaryMask || binaryMask.empty()) {
     analysisStore.clearHoveredHole()
@@ -269,13 +286,35 @@ watch([isCalibrating, () => imageStore.calibrateStartPoint, () => imageStore.cal
   drawTargetMask()
 })
 
-//监听图片绘制完成后,直接重绘所有蒙版
+// 监听图片绘制完成后,直接重绘所有蒙版
 watch(()=>imageDrawParams.value,()=>{
     if(imageDrawParams.value.drawWidth>0){
         drawRegionMask()
         drawTargetMask()
     }
 },{deep:true})
+
+// 定位态：弹窗点击"定位"后，在孔洞中心显示 Tooltip
+watch(() => analysisStore.locatedHoleInfo, (info) => {
+  if (info && info.centerX && info.centerY) {
+    const canvasPos = imageToCanvasCoords(info.centerX, info.centerY)
+    tooltipX.value = canvasPos.x
+    tooltipY.value = canvasPos.y
+    tooltipVisible.value = true
+  } else {
+    // 定位清除后，如果没有悬停态则隐藏 Tooltip
+    if (!analysisStore.hoveredHoleInfo) {
+      tooltipVisible.value = false
+    }
+  }
+})
+
+// 点击蒙版空白处取消定位
+const handleCanvasClick = (e: MouseEvent) => {
+  if (analysisStore.locatedHoleInfo) {
+    analysisStore.clearLocatedHole()
+  }
+}
 </script>
 
 <style scoped>
@@ -301,6 +340,11 @@ watch(()=>imageDrawParams.value,()=>{
   z-index: 1000;
   min-width: 140px;
   pointer-events: none;
+}
+/* 定位态 Tooltip：允许交互（取消定位按钮需要点击） */
+.hole-tooltip.located-tooltip {
+  pointer-events: auto;
+  border-color: #409eff;
 }
 
 .tooltip-title {
@@ -337,6 +381,22 @@ watch(()=>imageDrawParams.value,()=>{
 .tooltip-enter-active,
 .tooltip-leave-active {
   transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* 定位态标识 */
+.locate-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #409eff;
+  color: #fff;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.locate-dismiss-btn {
+  margin-top: 8px;
+  width: 100%;
+  font-size: 12px;
 }
 
 .tooltip-enter-from,

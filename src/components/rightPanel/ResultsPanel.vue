@@ -115,6 +115,11 @@
           </select>
         </template>
       </el-table-column>
+      <el-table-column label="定位" width="60" fixed="right">
+        <template #default="{ row }">
+          <el-button size="small" type="primary" link @click="locateHole(row)">定位</el-button>
+        </template>
+      </el-table-column>
       <el-table-column label="充填物" width="140">
         <template #default="{ row }">
           <select v-model="row.fillingMaterial" class="native-select">
@@ -139,11 +144,23 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useAnalysisStore } from '@/stores/analysisStore'
+import { useAnalysisStore, type HoleInfo } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
+
+// 点击"定位"：关闭弹窗，在画布上持久高亮该孔洞并显示信息
+const locateHole = (row: HoleInfo) => {
+  analysisStore.setLocatedHole({
+    index: row.index,
+    diameter: row.diameter,
+    area: row.area,
+    centerX: row.centerX,
+    centerY: row.centerY,
+  })
+  holeDetailVisible.value = false
+}
 
 // 单位换算（mm/μm）
 const currentUnit = computed(() => imageStore.scaleType === 'macro' ? 'mm' : 'μm')

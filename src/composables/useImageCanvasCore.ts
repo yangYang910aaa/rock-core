@@ -16,7 +16,7 @@ export const useImageCanvasCore = () => {
   const imageStore = useImageStore()
   const analysisStore = useAnalysisStore()
   const { processedImageDataUrl } = storeToRefs(imageStore)
-  const { targetMaskMat, hoveredHoleIndex, binaryMaskMat, analysisRegion, sourceImageSize } = storeToRefs(analysisStore)
+  const { targetMaskMat, hoveredHoleIndex, locatedHoleIndex, binaryMaskMat, analysisRegion, sourceImageSize } = storeToRefs(analysisStore)
 
   // ==========================================
   // 2. DOM 引用
@@ -141,11 +141,12 @@ export const useImageCanvasCore = () => {
     
     const { drawX, drawY, drawWidth, drawHeight } = imageDrawParams.value
     
-    // 如果有悬停的孔洞，生成带高亮效果的蒙版
-    if (hoveredHoleIndex.value !== null && binaryMaskMat.value && !binaryMaskMat.value.empty()) {
+    // 定位高亮优先于悬停高亮；定位后持久保持，悬停离开即消
+    const highlightIndex = locatedHoleIndex.value ?? hoveredHoleIndex.value
+    if (highlightIndex !== null && binaryMaskMat.value && !binaryMaskMat.value.empty()) {
       const visualMask = maskToVisualWithHighlight(
         binaryMaskMat.value,
-        hoveredHoleIndex.value,
+        highlightIndex,
         sourceImageSize.value,
         analysisRegion.value
       )
@@ -233,6 +234,10 @@ export const useImageCanvasCore = () => {
   })
   // 监听悬停状态变化，重新绘制目标蒙版（带高亮）
   watch(hoveredHoleIndex, () => {
+    drawTargetMask()
+  })
+  // 定位态变化也触发重绘
+  watch(locatedHoleIndex, () => {
     drawTargetMask()
   })
 
