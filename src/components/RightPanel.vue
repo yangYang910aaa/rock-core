@@ -165,52 +165,99 @@
             </el-descriptions>
           </template>
 
-          <!-- 逐孔详情列表（仅孔洞模式）：可独立设置每个孔洞的有效性和充填物 -->
-          <div v-if="analysisStore.currentMode === 'hole' && analysisStore.holeResults.holeList.length > 0" class="hole-list-section">
-            <div class="group-title" style="margin-top:16px; font-size:14px; font-weight:bold;">孔洞详情</div>
-            <el-table :data="analysisStore.holeResults.holeList" size="small" max-height="280" stripe>
-              <el-table-column prop="index" label="#" width="40" />
-              <el-table-column prop="diameter" label="直径" width="80">
-                <template #default="{ row }">{{ (row.diameter * unitScale).toFixed(3) }} {{ currentUnit }}</template>
-              </el-table-column>
-              <el-table-column prop="area" label="面积" width="90">
-                <template #default="{ row }">{{ (row.area * unitScale * unitScale).toFixed(4) }} {{ currentUnit }}²</template>
-              </el-table-column>
-              <el-table-column prop="category" label="分类" width="80">
-                <template #default="{ row }">
-                  <el-tag :type="categoryTagType(row.category)" size="small">{{ categoryLabel(row.category) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="有效性" width="160">
-                <template #default="{ row }">
-                  <select v-model="row.validity" class="native-select">
-                    <option value="">-</option>
-                    <option value="effective">有效（未充填）</option>
-                    <option value="semiEffective">较有效（半充填）</option>
-                    <option value="ineffective">无效（全充填）</option>
-                  </select>
-                </template>
-              </el-table-column>
-              <el-table-column label="充填物" width="130">
-                <template #default="{ row }">
-                  <select v-model="row.fillingMaterial" class="native-select">
-                    <option value="">-</option>
-                    <option value="mud">泥质</option>
-                    <option value="calcite">方解石</option>
-                    <option value="dolomite">白云石</option>
-                    <option value="asphalt">沥青</option>
-                    <option value="gypsum">石膏</option>
-                    <option value="pyrite">黄铁矿</option>
-                    <option value="kaolinite">高岭石</option>
-                    <option value="quartz">石英</option>
-                  </select>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
+          <!-- 查看孔洞详情按钮（仅孔洞模式） -->
+          <el-button
+            v-if="analysisStore.currentMode === 'hole' && analysisStore.holeResults.holeList.length > 0"
+            type="primary" size="small" style="margin-top:12px;width:100%;"
+            @click="openHoleDetail"
+          >
+            查看孔洞详情（{{ analysisStore.holeResults.holeList.length }} 个）
+          </el-button>
         </el-collapse-item>
       </el-collapse>
     </div>
+
+    <!-- 孔洞详情弹窗 -->
+    <el-dialog
+      v-model="holeDetailVisible"
+      title="孔洞详情"
+      width="780px"
+      top="3vh"
+      destroy-on-close
+    >
+      <!-- 筛选栏 -->
+      <div class="hole-filter-bar">
+        <select v-model="categoryFilter" class="native-select" style="width:110px;">
+          <option value="">全部分类</option>
+          <option value="large">大洞</option>
+          <option value="medium">中洞</option>
+          <option value="small">小洞</option>
+          <option value="pinhole">针孔/溶孔</option>
+        </select>
+        <select v-model="validityFilter" class="native-select" style="width:150px;">
+          <option value="">全部有效性</option>
+          <option value="effective">有效</option>
+          <option value="semiEffective">较有效</option>
+          <option value="ineffective">无效</option>
+          <option value="unset">未设置</option>
+        </select>
+        <select v-model="materialFilter" class="native-select" style="width:110px;">
+          <option value="">全部充填物</option>
+          <option value="mud">泥质</option>
+          <option value="calcite">方解石</option>
+          <option value="dolomite">白云石</option>
+          <option value="asphalt">沥青</option>
+          <option value="gypsum">石膏</option>
+          <option value="pyrite">黄铁矿</option>
+          <option value="kaolinite">高岭石</option>
+          <option value="quartz">石英</option>
+          <option value="unset">未设置</option>
+        </select>
+        <span class="filter-count">共 {{ filteredHoleList.length }} / {{ analysisStore.holeResults.holeList.length }} 个</span>
+      </div>
+      <el-table :data="filteredHoleList" size="small" max-height="480" stripe>
+        <el-table-column prop="index" label="#" width="50" />
+        <el-table-column prop="diameter" label="直径" width="100">
+          <template #default="{ row }">{{ (row.diameter * unitScale).toFixed(3) }} {{ currentUnit }}</template>
+        </el-table-column>
+        <el-table-column prop="area" label="面积" width="110">
+          <template #default="{ row }">{{ (row.area * unitScale * unitScale).toFixed(4) }} {{ currentUnit }}²</template>
+        </el-table-column>
+        <el-table-column prop="category" label="分类" width="90">
+          <template #default="{ row }">
+            <el-tag :type="categoryTagType(row.category)" size="small">{{ categoryLabel(row.category) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="有效性" width="170">
+          <template #default="{ row }">
+            <select v-model="row.validity" class="native-select">
+              <option value="">-</option>
+              <option value="effective">有效（未充填）</option>
+              <option value="semiEffective">较有效（半充填）</option>
+              <option value="ineffective">无效（全充填）</option>
+            </select>
+          </template>
+        </el-table-column>
+        <el-table-column label="充填物" width="140">
+          <template #default="{ row }">
+            <select v-model="row.fillingMaterial" class="native-select">
+              <option value="">-</option>
+              <option value="mud">泥质</option>
+              <option value="calcite">方解石</option>
+              <option value="dolomite">白云石</option>
+              <option value="asphalt">沥青</option>
+              <option value="gypsum">石膏</option>
+              <option value="pyrite">黄铁矿</option>
+              <option value="kaolinite">高岭石</option>
+              <option value="quartz">石英</option>
+            </select>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="holeDetailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -236,6 +283,40 @@ const handleDropdownCommand = (command: string) => {
     handleExportReport(command as 'excel' | 'pdf')
   }
 }
+
+// 孔洞详情弹窗 + 筛选
+const holeDetailVisible = ref(false)
+const openHoleDetail = () => {
+  categoryFilter.value = ''
+  validityFilter.value = ''
+  materialFilter.value = ''
+  holeDetailVisible.value = true
+}
+const categoryFilter = ref('')
+const validityFilter = ref('')
+const materialFilter = ref('')
+
+const filteredHoleList = computed(() => {
+  let list = analysisStore.holeResults.holeList
+  if (categoryFilter.value) {
+    list = list.filter(h => h.category === categoryFilter.value)
+  }
+  if (validityFilter.value) {
+    if (validityFilter.value === 'unset') {
+      list = list.filter(h => !h.validity)
+    } else {
+      list = list.filter(h => h.validity === validityFilter.value)
+    }
+  }
+  if (materialFilter.value) {
+    if (materialFilter.value === 'unset') {
+      list = list.filter(h => !h.fillingMaterial)
+    } else {
+      list = list.filter(h => h.fillingMaterial === materialFilter.value)
+    }
+  }
+  return list
+})
 
 // 孔洞分类标签映射
 const categoryLabel = (cat: string) => {
@@ -562,5 +643,20 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
 }
 .native-select:focus {
   border-color: #409eff;
+}
+
+/* 筛选栏 */
+.hole-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+.filter-count {
+  font-size: 12px;
+  color: #909399;
+  margin-left: auto;
 }
 </style>
