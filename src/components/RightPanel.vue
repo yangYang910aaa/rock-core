@@ -198,6 +198,12 @@ watch(() => analysisStore.colorMatchEnabled, (enabled) => {
     debouncePreview()
   }
 })
+// 连续区域开关切换时触发预览
+watch(() => analysisStore.contiguousRegionEnabled, () => {
+  if (!isResetting.value && analysisStore.colorMatchEnabled && analysisStore.pickedColor && currentMode.value === 'hole') {
+    debouncePreview()
+  }
+})
 
 // 切换图片时清空旧蒙版
 watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {

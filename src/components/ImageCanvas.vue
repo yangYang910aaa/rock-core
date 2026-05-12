@@ -186,6 +186,10 @@ const handleMouseDown = (e: MouseEvent) => {
     // 用 CSS 坐标直接读 Canvas 像素缓冲区（Canvas 尺寸 = CSS 尺寸，无需 devicePixelRatio）
     const pixel = ctx.getImageData(canvasX, canvasY, 1, 1).data
     analysisStore.pickedColor = { r: pixel[0]!, g: pixel[1]!, b: pixel[2]! }
+    // 同时记录图片像素坐标，供「连续区域」floodFill 使用
+    const imageCoords = canvasToImageCoords(canvasX, canvasY)
+    analysisStore.pickedColorImageX = Math.round(imageCoords.x)
+    analysisStore.pickedColorImageY = Math.round(imageCoords.y)
     analysisStore.isPickingColor = false
     return
   }

@@ -57,7 +57,10 @@ export const previewAnalysisMask = async (
     switch (mode) {
       case 'hole':
         if (analysisStore.colorMatchEnabled && analysisStore.pickedColor) {
-          roiBinaryMask = colorHoleSegmentation(src, analysisStore.pickedColor, analysisStore.colorMatchTolerance, region)
+          roiBinaryMask = colorHoleSegmentation(src, analysisStore.pickedColor, analysisStore.colorMatchTolerance, region,
+            analysisStore.contiguousRegionEnabled,
+            analysisStore.pickedColorImageX,
+            analysisStore.pickedColorImageY)
         } else {
           roiBinaryMask = holeSegmentation(src, threshold as HoleThreshold, region)
         }
@@ -166,7 +169,10 @@ export const executeFullAnalysis = async (
       case 'hole': {
         // 孔洞分析：颜色匹配优先于手动阈值
         const binaryMask = (analysisStore.colorMatchEnabled && analysisStore.pickedColor)
-          ? colorHoleSegmentation(src, analysisStore.pickedColor, analysisStore.colorMatchTolerance, region)
+          ? colorHoleSegmentation(src, analysisStore.pickedColor, analysisStore.colorMatchTolerance, region,
+            analysisStore.contiguousRegionEnabled,
+            analysisStore.pickedColorImageX,
+            analysisStore.pickedColorImageY)
           : holeSegmentation(src, threshold as HoleThreshold, region)
         finalBinaryMask = binaryMask.clone() // 保存用于悬停检测
         const contours = new cv.MatVector()

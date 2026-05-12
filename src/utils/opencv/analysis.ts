@@ -199,7 +199,10 @@ export const colorHoleSegmentation = (
   src: cv.Mat,
   pickedColor: { r: number; g: number; b: number },
   tolerance: number,
-  region: AnalysisRegion
+  region: AnalysisRegion,
+  contiguousRegion?: boolean,
+  clickX?: number,
+  clickY?: number
 ): cv.Mat => {
   const roiSrc = cropAnalysisRegion(src, region)
   const rgb = new cv.Mat()
@@ -224,6 +227,24 @@ export const colorHoleSegmentation = (
     cv.inRange(rgb, lowerBound, upperBound, binary)
     lowerBound.delete()
     upperBound.delete()
+
+    // 连续区域：floodFill 从点击坐标扩展，仅保留连通的匹配区域
+    if (contiguousRegion && clickX !== undefined && clickY !== undefined) {
+      const roiX = region.width > 0 ? clickX - region.x : clickX
+      const roiY = region.height > 0 ? clickY - region.y : clickY
+      if (roiX >= 0 && roiY >= 0 && roiX < binary.cols && roiY < binary.rows) {
+        // floodFill 直接修改 binary：把 255 改写为 128，loDiff/upDiff=0 限制只在同值像素扩散
+        const mask = new cv.Mat(binary.rows + 2, binary.cols + 2, cv.CV_8UC1, new cv.Scalar(0))
+        cv.floodFill(binary, mask, new cv.Point(roiX, roiY), new cv.Scalar(128), new cv.Rect(), new cv.Scalar(0), new cv.Scalar(0), 4)
+        mask.delete()
+        // 只保留被标记为 128 的连通分量
+        const lower = new cv.Mat(1, 1, cv.CV_8UC1, new cv.Scalar(128))
+        const upper = new cv.Mat(1, 1, cv.CV_8UC1, new cv.Scalar(128))
+        cv.inRange(binary, lower, upper, binary)
+        lower.delete()
+        upper.delete()
+      }
+    }
 
     const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3))
     cv.morphologyEx(binary, dst, cv.MORPH_CLOSE, kernel)

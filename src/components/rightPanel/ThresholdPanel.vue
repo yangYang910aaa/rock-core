@@ -35,6 +35,10 @@
               <span class="swatch-text">RGB({{ analysisStore.pickedColor.r }}, {{ analysisStore.pickedColor.g }}, {{ analysisStore.pickedColor.b }})</span>
             </div>
           </el-form-item>
+          <el-form-item label="连续区域">
+            <el-switch v-model="analysisStore.contiguousRegionEnabled" size="small" />
+            <span class="contiguous-hint">仅提取点击处连通的相似颜色区域</span>
+          </el-form-item>
           <el-form-item label="匹配度">
             <div style="display:flex;align-items:center;gap:4px;">
               <el-button size="small" :icon="Minus" circle style="width:22px;height:22px;" @click="analysisStore.colorMatchTolerance = Math.max(1, analysisStore.colorMatchTolerance - 1)" />
@@ -140,5 +144,10 @@ const pickedColorStyle = computed(() => {
 .swatch-text {
   font-size: 12px;
   color: #606266;
+}
+.contiguous-hint {
+  font-size: 11px;
+  color: #E6A23C;
+  margin-left: 8px;
 }
 </style>

@@ -153,6 +153,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const isPickingColor=ref<boolean>(false) // 是否正在等待用户在图片上点击取色
     const pickedColor=ref<{r:number,g:number,b:number}|null>(null)
     const colorMatchTolerance=ref<number>(30) // 匹配度 0-100，默认30
+    const contiguousRegionEnabled=ref<boolean>(false) // 连续区域：只提取点击处连通区域
+    const pickedColorImageX=ref<number>(0) // 取色点在图片上的像素坐标
+    const pickedColorImageY=ref<number>(0)
 
    // ----
    // 分析结果状态
@@ -215,6 +218,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         isPickingColor.value=false
         pickedColor.value=null
         colorMatchTolerance.value=30
+        contiguousRegionEnabled.value=false
+        pickedColorImageX.value=0
+        pickedColorImageY.value=0
     }
     const resetCoreBasicInfo=()=>{
         coreBasicInfo.value={
@@ -540,6 +546,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     isPickingColor,
     pickedColor,
     colorMatchTolerance,
+    contiguousRegionEnabled,
+    pickedColorImageX,
+    pickedColorImageY,
     clearTargetMask,
     saveMaskToHistory,
     undoMask,
