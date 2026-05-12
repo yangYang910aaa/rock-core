@@ -215,7 +215,14 @@ const handleMouseMove = (e: MouseEvent) => {
   }
 
   handleRegionMouseMove(e, imageCanvasRef.value!)
-  
+
+  // 颜色匹配模式：实时显示鼠标处像素颜色（取色中则跳过，避免干扰）
+  if (analysisStore.colorMatchEnabled && !analysisStore.isPickingColor && imageCanvasRef.value) {
+    const ctx = imageCanvasRef.value.getContext('2d')!
+    const pixel = ctx.getImageData(canvasX, canvasY, 1, 1).data
+    analysisStore.currentHoverColor = { r: pixel[0]!, g: pixel[1]!, b: pixel[2]! }
+  }
+
   // 检测鼠标悬停的孔洞
   detectHoveredHoleOnCanvas(canvasX, canvasY, rect)
 }
@@ -232,6 +239,7 @@ const handleMouseUp = () => {
 const handleMouseLeave = () => {
   if (analysisStore.locatedHoleInfo) return  // 定位态下不清理
   analysisStore.clearHoveredHole()
+  analysisStore.currentHoverColor = null
   tooltipVisible.value = false
 }
 

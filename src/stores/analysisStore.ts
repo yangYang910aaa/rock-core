@@ -156,6 +156,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const contiguousRegionEnabled=ref<boolean>(false) // 连续区域：只提取点击处连通区域
     const pickedColorImageX=ref<number>(0) // 取色点在图片上的像素坐标
     const pickedColorImageY=ref<number>(0)
+    const currentHoverColor=ref<{r:number,g:number,b:number}|null>(null) // 鼠标悬停处像素颜色（实时显示）
 
    // ----
    // 分析结果状态
@@ -221,6 +222,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         contiguousRegionEnabled.value=false
         pickedColorImageX.value=0
         pickedColorImageY.value=0
+        currentHoverColor.value=null
     }
     const resetCoreBasicInfo=()=>{
         coreBasicInfo.value={
@@ -549,6 +551,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     contiguousRegionEnabled,
     pickedColorImageX,
     pickedColorImageY,
+    currentHoverColor,
     clearTargetMask,
     saveMaskToHistory,
     undoMask,

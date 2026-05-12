@@ -35,6 +35,10 @@
               <span class="swatch-text">RGB({{ analysisStore.pickedColor.r }}, {{ analysisStore.pickedColor.g }}, {{ analysisStore.pickedColor.b }})</span>
             </div>
           </el-form-item>
+          <el-form-item v-if="analysisStore.currentHoverColor" label="当前颜色">
+            <span class="swatch-dot" :style="{ background: hoverColorStyle }"></span>
+            <span class="swatch-text">RGB({{ analysisStore.currentHoverColor.r }}, {{ analysisStore.currentHoverColor.g }}, {{ analysisStore.currentHoverColor.b }})</span>
+          </el-form-item>
           <el-form-item label="连续区域">
             <el-switch v-model="analysisStore.contiguousRegionEnabled" size="small" />
             <span class="contiguous-hint">仅提取点击处连通的相似颜色区域</span>
@@ -122,6 +126,10 @@ const startPickingColor = () => {
 // 颜色色块样式
 const pickedColorStyle = computed(() => {
   const c = analysisStore.pickedColor
+  return c ? `rgb(${c.r},${c.g},${c.b})` : 'transparent'
+})
+const hoverColorStyle = computed(() => {
+  const c = analysisStore.currentHoverColor
   return c ? `rgb(${c.r},${c.g},${c.b})` : 'transparent'
 })
 </script>
