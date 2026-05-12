@@ -44,14 +44,23 @@
       </el-descriptions>
     </template>
 
-    <!-- 查看孔洞详情按钮（仅孔洞模式有数据时显示） -->
-    <el-button
-      v-if="analysisStore.currentMode === 'hole' && analysisStore.holeResults.holeList.length > 0"
-      type="primary" size="small" style="margin-top:12px;width:100%;"
-      @click="openHoleDetail"
-    >
-      查看孔洞详情（{{ analysisStore.holeResults.holeList.length }} 个）
-    </el-button>
+    <!-- 孔洞分析附属功能按钮 -->
+    <div v-if="analysisStore.currentMode === 'hole' && analysisStore.holeResults.holeList.length > 0" class="hole-extra-btns">
+      <el-button type="primary" class="hole-extra-btn" @click="openHoleDetail">
+        查看孔洞详情（{{ analysisStore.holeResults.holeList.length }} 个）
+      </el-button>
+      <el-button type="success" class="hole-extra-btn" @click="chartDialogVisible = true">
+        查看直径分布图
+      </el-button>
+    </div>
+
+    <!-- 直径分布图弹窗 -->
+    <el-dialog v-model="chartDialogVisible" title="孔洞直径分布" width="900px" top="5vh" destroy-on-close>
+      <HoleDistributionChart :height="560" />
+      <template #footer>
+        <el-button @click="chartDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </el-collapse-item>
 
   <!-- 孔洞详情弹窗 -->
@@ -146,6 +155,7 @@
 import { ref, computed } from 'vue'
 import { useAnalysisStore, type HoleInfo } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
+import HoleDistributionChart from './HoleDistributionChart.vue'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
@@ -168,6 +178,7 @@ const unitScale = computed(() => imageStore.scaleType === 'macro' ? 1 : 1000)
 
 // ---- 孔洞详情弹窗 + 筛选 ----
 const holeDetailVisible = ref(false)
+const chartDialogVisible = ref(false)
 // 打开弹窗时清空上次筛选条件，避免残留状态
 const openHoleDetail = () => {
   categoryFilter.value = ''
@@ -256,5 +267,25 @@ const categoryTagType = (cat: string) => {
   font-size: 12px;
   color: #909399;
   margin-left: auto;
+}
+
+/* 孔洞附属功能按钮组，对齐主操作区风格 */
+.hole-extra-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  width: 100%;
+  padding: 0;
+  box-sizing: border-box;
+}
+.hole-extra-btn {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 38px;
+  font-size: 14px;
+  border-radius: 6px;
+  margin: 0 !important;
+  box-sizing: border-box !important;
 }
 </style>
