@@ -185,6 +185,20 @@ watch(() => analysisStore.regionMode, (newMode, oldMode) => {
   }
 })
 
+// 颜色匹配：取色或容差变化时实时预览
+watch(() => analysisStore.pickedColor, () => {
+  if (!isResetting.value && analysisStore.colorMatchEnabled && currentMode.value === 'hole') debouncePreview()
+})
+watch(() => analysisStore.colorMatchTolerance, () => {
+  if (!isResetting.value && analysisStore.colorMatchEnabled && currentMode.value === 'hole') debouncePreview()
+})
+// 颜色匹配开关切换时触发预览
+watch(() => analysisStore.colorMatchEnabled, (enabled) => {
+  if (enabled && analysisStore.pickedColor && !isResetting.value && currentMode.value === 'hole') {
+    debouncePreview()
+  }
+})
+
 // 切换图片时清空旧蒙版
 watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   if (newUrl && newUrl !== oldUrl) {

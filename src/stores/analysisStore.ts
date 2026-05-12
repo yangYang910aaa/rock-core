@@ -147,6 +147,14 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const sizeThreshold=ref<SizeThreshold>({rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50})
 
    // ----
+   // 颜色匹配状态（替代手动阈值，点击图片取色）
+   // ----
+    const colorMatchEnabled=ref<boolean>(false)
+    const isPickingColor=ref<boolean>(false) // 是否正在等待用户在图片上点击取色
+    const pickedColor=ref<{r:number,g:number,b:number}|null>(null)
+    const colorMatchTolerance=ref<number>(30) // 匹配度 0-100，默认30
+
+   // ----
    // 分析结果状态
    // ----
     const holeResults=ref<HoleResults>({totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]})
@@ -203,6 +211,10 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         holeThreshold.value={minThreshold:0,maxThreshold:128}
         crackThreshold.value={minWidth:0.1,maxWidth:5.0,minLength:10,cannyLow:50,cannyHigh:150}
         sizeThreshold.value={rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50}
+        colorMatchEnabled.value=false
+        isPickingColor.value=false
+        pickedColor.value=null
+        colorMatchTolerance.value=30
     }
     const resetCoreBasicInfo=()=>{
         coreBasicInfo.value={
@@ -524,6 +536,10 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,
+    colorMatchEnabled,
+    isPickingColor,
+    pickedColor,
+    colorMatchTolerance,
     clearTargetMask,
     saveMaskToHistory,
     undoMask,

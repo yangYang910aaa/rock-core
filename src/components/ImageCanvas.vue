@@ -176,10 +176,19 @@ const {
 // 5. 统一的鼠标事件分发
 // ==========================================
 const handleMouseDown = (e: MouseEvent) => {
-  // 只获取一次 rect
   const rect = imageCanvasRef.value!.getBoundingClientRect()
   const canvasX = e.clientX - rect.left
   const canvasY = e.clientY - rect.top
+
+  // 颜色匹配取色模式：getImageData 用 Canvas 原始像素坐标，不做缩放转换
+  if (analysisStore.isPickingColor) {
+    const ctx = imageCanvasRef.value!.getContext('2d')!
+    // 用 CSS 坐标直接读 Canvas 像素缓冲区（Canvas 尺寸 = CSS 尺寸，无需 devicePixelRatio）
+    const pixel = ctx.getImageData(canvasX, canvasY, 1, 1).data
+    analysisStore.pickedColor = { r: pixel[0]!, g: pixel[1]!, b: pixel[2]! }
+    analysisStore.isPickingColor = false
+    return
+  }
 
   // 校准模式优先
   if (isCalibrating.value) {

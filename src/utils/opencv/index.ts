@@ -25,6 +25,7 @@ export {
 // 分析模式工具
 export {
   holeSegmentation,
+  colorHoleSegmentation,
   crackSegmentation,
   sizeSegmentation
 } from './analysis'

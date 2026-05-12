@@ -11,7 +11,51 @@
 
     <!-- 孔洞分析阈值 -->
     <template v-if="analysisStore.currentMode === 'hole'">
+      <!-- 颜色匹配开关 -->
       <el-form label-width="90px" size="default" class="panel-form">
+        <el-form-item label="颜色匹配">
+          <el-switch v-model="analysisStore.colorMatchEnabled" />
+        </el-form-item>
+      </el-form>
+
+      <!-- 颜色匹配模式 -->
+      <template v-if="analysisStore.colorMatchEnabled">
+        <el-form label-width="90px" size="default" class="panel-form">
+          <el-form-item label="取色">
+            <el-button
+              :type="analysisStore.isPickingColor ? 'warning' : 'primary'"
+              size="small"
+              style="width:100%;"
+              @click="startPickingColor"
+            >
+              {{ analysisStore.isPickingColor ? '取色中，请点击图片...' : '点击图片取色' }}
+            </el-button>
+            <div v-if="analysisStore.pickedColor" class="color-swatch">
+              <span class="swatch-dot" :style="{ background: pickedColorStyle }"></span>
+              <span class="swatch-text">RGB({{ analysisStore.pickedColor.r }}, {{ analysisStore.pickedColor.g }}, {{ analysisStore.pickedColor.b }})</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="匹配度">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <el-button size="small" :icon="Minus" circle style="width:22px;height:22px;" @click="analysisStore.colorMatchTolerance = Math.max(1, analysisStore.colorMatchTolerance - 1)" />
+              <el-slider v-model="analysisStore.colorMatchTolerance" :min="1" :max="100" :step="1" style="flex:1;min-width:80px;" />
+              <el-button size="small" :icon="Plus" circle style="width:22px;height:22px;" @click="analysisStore.colorMatchTolerance = Math.min(100, analysisStore.colorMatchTolerance + 1)" />
+            </div>
+            <div style="width:100%;margin-top:4px;">
+              <div style="font-size:11px;color:#E6A23C;">数值越低，匹配越精确</div>
+              <div style="font-size:11px;color:#E6A23C;">容差 ±{{ Math.round(analysisStore.colorMatchTolerance / 100 * 128) }}</div>
+              <div v-if="analysisStore.pickedColor" style="font-size:11px;color:#909399;line-height:1.6;">
+                <div>R:[{{ Math.max(0, analysisStore.pickedColor.r - Math.round(analysisStore.colorMatchTolerance / 100 * 128)) }}~{{ Math.min(255, analysisStore.pickedColor.r + Math.round(analysisStore.colorMatchTolerance / 100 * 128)) }}]</div>
+                <div>G:[{{ Math.max(0, analysisStore.pickedColor.g - Math.round(analysisStore.colorMatchTolerance / 100 * 128)) }}~{{ Math.min(255, analysisStore.pickedColor.g + Math.round(analysisStore.colorMatchTolerance / 100 * 128)) }}]</div>
+                <div>B:[{{ Math.max(0, analysisStore.pickedColor.b - Math.round(analysisStore.colorMatchTolerance / 100 * 128)) }}~{{ Math.min(255, analysisStore.pickedColor.b + Math.round(analysisStore.colorMatchTolerance / 100 * 128)) }}]</div>
+              </div>
+            </div>
+          </el-form-item>
+        </el-form>
+      </template>
+
+      <!-- 手动阈值模式（颜色匹配关闭时显示） -->
+      <el-form v-else label-width="90px" size="default" class="panel-form">
         <el-form-item label="最小阈值">
           <el-slider v-model="analysisStore.holeThreshold.minThreshold" :min="0" :max="255" class="panel-slider" />
         </el-form-item>
@@ -60,6 +104,41 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { Minus, Plus } from '@element-plus/icons-vue'
 import { useAnalysisStore } from '@/stores/analysisStore'
 const analysisStore = useAnalysisStore()
+
+// 点击取色前清空旧蒙版，避免残留干扰视觉
+const startPickingColor = () => {
+  analysisStore.clearTargetMask()
+  analysisStore.isPickingColor = !analysisStore.isPickingColor
+}
+
+// 颜色色块样式
+const pickedColorStyle = computed(() => {
+  const c = analysisStore.pickedColor
+  return c ? `rgb(${c.r},${c.g},${c.b})` : 'transparent'
+})
 </script>
+
+<style scoped>
+/* 颜色取色预览 */
+.color-swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.swatch-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  flex-shrink: 0;
+}
+.swatch-text {
+  font-size: 12px;
+  color: #606266;
+}
+</style>

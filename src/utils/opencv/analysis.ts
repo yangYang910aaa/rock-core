@@ -187,3 +187,52 @@ export const sizeSegmentation = (
     if (!textureMask.empty()) textureMask.delete()
   }
 }
+
+// 颜色距离容差转 inRange 边界值：容差 0 ≈ 精确匹配，100 ≈ 全图
+const toleranceToBounds = (val: number, tolerance: number): [number, number] => {
+  const halfRange = Math.round((tolerance / 100) * 128)
+  return [Math.max(0, val - halfRange), Math.min(255, val + halfRange)]
+}
+
+/** 【孔洞分析】颜色匹配分割：点击取色 + 容差滑块，替代手动灰度阈值 */
+export const colorHoleSegmentation = (
+  src: cv.Mat,
+  pickedColor: { r: number; g: number; b: number },
+  tolerance: number,
+  region: AnalysisRegion
+): cv.Mat => {
+  const roiSrc = cropAnalysisRegion(src, region)
+  const rgb = new cv.Mat()
+  const binary = new cv.Mat()
+  const dst = new cv.Mat()
+
+  try {
+    // cv.imread(canvas) 返回 RGBA 四通道；cv.inRange 需要三通道，先去掉 Alpha
+    if (roiSrc.channels() === 4) {
+      cv.cvtColor(roiSrc, rgb, cv.COLOR_RGBA2RGB)
+    } else {
+      roiSrc.copyTo(rgb)
+    }
+
+    const [rLow, rHigh] = toleranceToBounds(pickedColor.r, tolerance)
+    const [gLow, gHigh] = toleranceToBounds(pickedColor.g, tolerance)
+    const [bLow, bHigh] = toleranceToBounds(pickedColor.b, tolerance)
+
+    // cv.imread(canvas) 返回 RGBA，通道顺序为 R,G,B → Scalar(r, g, b)
+    const lowerBound = new cv.Mat(1, 1, cv.CV_8UC3, new cv.Scalar(rLow, gLow, bLow))
+    const upperBound = new cv.Mat(1, 1, cv.CV_8UC3, new cv.Scalar(rHigh, gHigh, bHigh))
+    cv.inRange(rgb, lowerBound, upperBound, binary)
+    lowerBound.delete()
+    upperBound.delete()
+
+    const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3))
+    cv.morphologyEx(binary, dst, cv.MORPH_CLOSE, kernel)
+    cv.morphologyEx(dst, dst, cv.MORPH_OPEN, kernel)
+    kernel.delete()
+    return dst
+  } finally {
+    roiSrc.delete()
+    if (!rgb.empty()) rgb.delete()
+    if (!binary.empty()) binary.delete()
+  }
+}

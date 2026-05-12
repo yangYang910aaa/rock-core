@@ -21,6 +21,7 @@ import type {
 import {
   loadImageToMat,
   holeSegmentation,
+  colorHoleSegmentation,
   crackSegmentation,
   sizeSegmentation,
   maskToVisual
@@ -55,7 +56,11 @@ export const previewAnalysisMask = async (
     // 2. 根据分析模式执行分割
     switch (mode) {
       case 'hole':
-        roiBinaryMask = holeSegmentation(src, threshold as HoleThreshold, region)
+        if (analysisStore.colorMatchEnabled && analysisStore.pickedColor) {
+          roiBinaryMask = colorHoleSegmentation(src, analysisStore.pickedColor, analysisStore.colorMatchTolerance, region)
+        } else {
+          roiBinaryMask = holeSegmentation(src, threshold as HoleThreshold, region)
+        }
         break
       case 'crack':
         roiBinaryMask = crackSegmentation(src, threshold as CrackThreshold, region)
@@ -159,8 +164,10 @@ export const executeFullAnalysis = async (
 
     switch (mode) {
       case 'hole': {
-        // 孔洞分析结果计算
-        const binaryMask = holeSegmentation(src, threshold as HoleThreshold, region)
+        // 孔洞分析：颜色匹配优先于手动阈值
+        const binaryMask = (analysisStore.colorMatchEnabled && analysisStore.pickedColor)
+          ? colorHoleSegmentation(src, analysisStore.pickedColor, analysisStore.colorMatchTolerance, region)
+          : holeSegmentation(src, threshold as HoleThreshold, region)
         finalBinaryMask = binaryMask.clone() // 保存用于悬停检测
         const contours = new cv.MatVector()
         const hierarchy = new cv.Mat()
