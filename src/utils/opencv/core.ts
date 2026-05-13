@@ -251,6 +251,85 @@ export const detectHoveredHole = (
   return resultInfo
 }
 
+/** 裂缝悬停检测：用距离容差替代点-in-多边形判断，适应薄裂缝轮廓 */
+export interface CrackHoverInfo {
+  index: number; length: number; width: number; centerX: number; centerY: number
+}
+export const detectHoveredCrack = (
+  binaryMask: cv.Mat,
+  mouseX: number,
+  mouseY: number,
+  region: AnalysisRegion = { x: 0, y: 0, width: 0, height: 0 },
+  pixelToMm: number = 0.1,
+  minLength = 1, minWidth = 0.1, maxWidth = 5.0
+): CrackHoverInfo | null => {
+  if (mouseX < 0 || mouseX >= binaryMask.cols || mouseY < 0 || mouseY >= binaryMask.rows) return null
+  if (region.width > 0 && region.height > 0) {
+    if (mouseX < region.x || mouseX >= region.x + region.width ||
+        mouseY < region.y || mouseY >= region.y + region.height) return null
+  }
+  // 检查该点是否在掩码上（裂缝像素）
+  const pixelValue = binaryMask.ucharPtr(mouseY, mouseX)[0]
+  if (pixelValue < 128) return null
+
+  const contours = new cv.MatVector()
+  const hierarchy = new cv.Mat()
+  const maskForContours = binaryMask.clone()
+  cv.findContours(maskForContours, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+  maskForContours.delete()
+
+  let result: CrackHoverInfo | null = null
+  let crackIndex = 0
+
+  try {
+    for (let i = 0; i < contours.size(); i++) {
+      const contour = contours.get(i)
+      const contourArea = cv.contourArea(contour)
+      if (contourArea < 10) { contour.delete(); continue }
+
+      // 长度过滤（与 executeFullAnalysis 顺序一致）
+      const length = cv.arcLength(contour, false) * pixelToMm
+      if (length < minLength) { contour.delete(); continue }
+
+      // 宽度过滤：minAreaRect 仅对通过长度过滤的轮廓计算，避免潜在崩溃
+      const rect = cv.minAreaRect(contour)
+      if (!rect || !rect.size) { contour.delete(); continue }
+      const width = Math.min(rect.size.width, rect.size.height) * pixelToMm
+      if (width < minWidth || width > maxWidth) { contour.delete(); continue }
+      crackIndex++
+
+      // 用距离容差模式：距离 >= -5 像素就算命中（适应薄裂缝轮廓）
+      try {
+        const dist = cv.pointPolygonTest(contour, new cv.Point(mouseX, mouseY), true)
+        if (dist >= -5) {
+          const moments = cv.moments(contour)
+          let cx = mouseX, cy = mouseY
+          if (moments.m00 > 0) {
+            cx = Math.round(moments.m10 / moments.m00)
+            cy = Math.round(moments.m01 / moments.m00)
+          }
+
+          result = {
+            index: crackIndex,
+            length: Number(length.toFixed(4)),
+            width: Number(width.toFixed(4)),
+            centerX: cx,
+            centerY: cy
+          }
+          contour.delete()
+          break
+        }
+      } catch { /* pointPolygonTest 失败则继续下一个 */ }
+      contour.delete()
+    }
+  } finally {
+    contours.delete()
+    hierarchy.delete()
+  }
+
+  return result
+}
+
 /**
  * 根据悬停的孔洞索引生成高亮蒙版
  * @param binaryMask 原始二值蒙版

@@ -229,6 +229,37 @@ export const exportToExcel = async (
     })
   }
 
+  // 逐条裂缝详情表（仅裂缝模式）
+  if (params.mode === 'crack' && (results as any).crackList?.length > 0) {
+    currentRow++
+    const clCell = worksheet.getCell(`A${currentRow}`)
+    clCell.value = '裂缝详情'
+    clCell.font = { bold: true, size: 16 }
+    clCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F9FF' } }
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`)
+    currentRow++
+
+    const headerRow = worksheet.addRow(['序号', '长度(mm)', '宽度(mm)', '面积(mm²)', '有效性', '充填物'])
+    headerRow.eachCell((c) => {
+      c.font = { bold: true }
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } }
+      c.alignment = { horizontal: 'center', vertical: 'middle' }
+    })
+    currentRow++
+
+    const valL: Record<string,string> = { effective:'有效', semiEffective:'较有效', ineffective:'无效' }
+    ;(results as any).crackList.forEach((c: any) => {
+      const dataRow = worksheet.addRow([c.index, c.length.toFixed(3), c.width.toFixed(3), c.area.toFixed(4), valL[c.validity]||'', fillingMaterialLabels[c.fillingMaterial]||''])
+      dataRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(5).alignment = { vertical: 'middle' }
+      dataRow.getCell(6).alignment = { vertical: 'middle' }
+      currentRow++
+    })
+  }
+
   // ==========================================
   // 全局样式统一：所有单元格加边框
   // ==========================================
@@ -314,6 +345,44 @@ const generateHoleListHtml = (holeList: any[], unit: string) => {
   <table class="hole-table">
     <thead><tr>
       <th>#</th><th>直径</th><th>面积</th><th>分类</th><th>有效性</th><th>充填物</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`
+}
+
+/** 生成逐条裂缝详情 HTML 表格 */
+const generateCrackListHtml = (crackList: any[], unit: string) => {
+  if (!crackList || crackList.length === 0) return ''
+  const validityLabels2: Record<string,string> = { effective:'有效', semiEffective:'较有效', ineffective:'无效' }
+  const materialLabels: Record<string,string> = fillingMaterialLabels
+
+  let rows = ''
+  crackList.forEach(c => {
+    rows += `<tr>
+      <td>${c.index}</td>
+      <td>${c.length.toFixed(3)} ${unit}</td>
+      <td>${c.width.toFixed(3)} ${unit}</td>
+      <td>${c.area.toFixed(4)} ${unit}²</td>
+      <td>${validityLabels2[c.validity] || ''}</td>
+      <td>${materialLabels[c.fillingMaterial] || ''}</td>
+    </tr>`
+  })
+  return `<h2>裂缝详情</h2>
+  <style>
+    .crack-table { table-layout: fixed; }
+    .crack-table th, .crack-table td {
+      padding: 6px 8px; overflow: hidden; text-overflow: ellipsis;
+    }
+    .crack-table td:first-child { width: 36px; text-align: center; font-weight: normal; background: none; }
+    .crack-table td:nth-child(2) { width: 90px; text-align: center; }
+    .crack-table td:nth-child(3) { width: 90px; text-align: center; }
+    .crack-table td:nth-child(4) { width: 100px; }
+    .crack-table td:nth-child(5) { width: 110px; }
+    .crack-table td:nth-child(6) { width: 100px; }
+  </style>
+  <table class="crack-table">
+    <thead><tr>
+      <th>#</th><th>长度</th><th>宽度</th><th>面积</th><th>有效性</th><th>充填物</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`
@@ -441,6 +510,10 @@ export const generateReportHtml = (
   if (params.mode === 'hole' && (results as any).holeList?.length > 0) {
     const holeListHtml = generateHoleListHtml((results as any).holeList, unit)
     reportHtml = reportHtml.replace('</body>', `${holeListHtml}</body>`)
+  }
+  if (params.mode === 'crack' && (results as any).crackList?.length > 0) {
+    const crackListHtml = generateCrackListHtml((results as any).crackList, unit)
+    reportHtml = reportHtml.replace('</body>', `${crackListHtml}</body>`)
   }
   return reportHtml
 }
@@ -583,6 +656,11 @@ export const generateExcelPreviewHtml = (
   if (params.mode === 'hole' && (results as any).holeList?.length > 0) {
     const holeListHtml = generateHoleListHtml((results as any).holeList, unit)
     html = html.replace('</body>', `${holeListHtml}</body>`)
+  }
+  // 追加裂缝详情表（仅裂缝模式有数据）
+  if (params.mode === 'crack' && (results as any).crackList?.length > 0) {
+    const crackListHtml = generateCrackListHtml((results as any).crackList, unit)
+    html = html.replace('</body>', `${crackListHtml}</body>`)
   }
   return html
 }

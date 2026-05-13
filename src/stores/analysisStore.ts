@@ -72,6 +72,18 @@ export interface HoleResults{
     holeList:HoleInfo[]   // 逐孔详情列表
 }
 
+// 单个裂缝详情（用于逐条列表展示和编辑）
+export interface CrackInfo{
+    index:number            // 裂缝序号（从1开始）
+    length:number           // 长度 mm
+    width:number            // 宽度 mm
+    area:number             // 面积 mm²
+    centerX:number          // 裂缝中心 X（图像像素坐标）
+    centerY:number          // 裂缝中心 Y（图像像素坐标）
+    validity:ValidityType   // 有效性评价
+    fillingMaterial:FillingMaterial // 充填物类型
+}
+
 // 裂缝分析结果
 export interface CrackResults{
     totalCount:number
@@ -80,6 +92,7 @@ export interface CrackResults{
     faceRate:number
     lineDensity:number
     areaDensity:number
+    crackList:CrackInfo[]
 }
 
 // 粒度分析结果
@@ -144,7 +157,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
    // 阈值状态
    // ----
     const holeThreshold=ref<HoleThreshold>({minThreshold:0,maxThreshold:128})
-    const crackThreshold=ref<CrackThreshold>({minWidth:0.1,maxWidth:5.0,minLength:10,cannyLow:50,cannyHigh:150})
+    const crackThreshold=ref<CrackThreshold>({minWidth:0.1,maxWidth:5.0,minLength:1,cannyLow:50,cannyHigh:150})
     const sizeThreshold=ref<SizeThreshold>({rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50})
 
    // ----
@@ -163,7 +176,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
    // 分析结果状态
    // ----
     const holeResults=ref<HoleResults>({totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]})
-    const crackResults=ref<CrackResults>({totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0})
+    const crackResults=ref<CrackResults>({totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0,crackList:[]})
     const sizeResults=ref<SizeResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0})
 
    // ----
@@ -209,12 +222,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     }
     const resetResults=()=>{
         holeResults.value={totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]}
-        crackResults.value={totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0}
+        crackResults.value={totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0,crackList:[]}
         sizeResults.value={totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0}
     }
     const resetThresholds=()=>{
         holeThreshold.value={minThreshold:0,maxThreshold:128}
-        crackThreshold.value={minWidth:0.1,maxWidth:5.0,minLength:10,cannyLow:50,cannyHigh:150}
+        crackThreshold.value={minWidth:0.1,maxWidth:5.0,minLength:1,cannyLow:50,cannyHigh:150}
         sizeThreshold.value={rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50}
         colorMatchEnabled.value=false
         isPickingColor.value=false
@@ -256,6 +269,22 @@ export const useAnalysisStore=defineStore('analysis',()=>{
       hoveredHoleIndex.value = null
     }
 
+    // 裂缝悬停状态
+    const hoveredCrackIndex = ref<number | null>(null)
+    const hoveredCrackInfo = ref<{
+      index: number; length: number; width: number; centerX: number; centerY: number
+    } | null>(null)
+    const setHoveredCrackInfo = (info: {
+      index: number; length: number; width: number; centerX: number; centerY: number
+    } | null) => {
+      hoveredCrackInfo.value = info
+      hoveredCrackIndex.value = info ? info.index : null
+    }
+    const clearHoveredCrack = () => {
+      hoveredCrackInfo.value = null
+      hoveredCrackIndex.value = null
+    }
+
     // 定位孔洞（弹窗"定位"按钮触发，持久保持）
     const setLocatedHole = (info: {
       index: number; diameter: number; area: number; centerX: number; centerY: number
@@ -266,6 +295,22 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const clearLocatedHole = () => {
       locatedHoleInfo.value = null
       locatedHoleIndex.value = null
+    }
+
+    // 裂缝定位状态（裂缝详情弹窗中点击"定位"触发）
+    const locatedCrackIndex = ref<number | null>(null)
+    const locatedCrackInfo = ref<{
+      index: number; length: number; width: number; centerX: number; centerY: number
+    } | null>(null)
+    const setLocatedCrack = (info: {
+      index: number; length: number; width: number; centerX: number; centerY: number
+    }) => {
+      locatedCrackInfo.value = info
+      locatedCrackIndex.value = info.index
+    }
+    const clearLocatedCrack = () => {
+      locatedCrackInfo.value = null
+      locatedCrackIndex.value = null
     }
     
     const resetAll=()=>{
@@ -280,7 +325,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         resetCoreBasicInfo()
         disposeMasks()
         clearHoveredHole()
+        clearHoveredCrack()
         clearLocatedHole()
+        clearLocatedCrack()
     }
 
     // ----
@@ -529,6 +576,8 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     hoveredHoleInfo,
     locatedHoleIndex,
     locatedHoleInfo,
+    locatedCrackIndex,
+    locatedCrackInfo,
     // 方法
     setMode,
     setRegionMode,
@@ -540,8 +589,14 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     setCoreBasicInfo,
     setHoveredHoleInfo,
     clearHoveredHole,
+    hoveredCrackIndex,
+    hoveredCrackInfo,
+    setHoveredCrackInfo,
+    clearHoveredCrack,
     setLocatedHole,
     clearLocatedHole,
+    setLocatedCrack,
+    clearLocatedCrack,
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,

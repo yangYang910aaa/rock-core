@@ -16,7 +16,7 @@ export const useImageCanvasCore = () => {
   const imageStore = useImageStore()
   const analysisStore = useAnalysisStore()
   const { processedImageDataUrl } = storeToRefs(imageStore)
-  const { targetMaskMat, hoveredHoleIndex, locatedHoleIndex, binaryMaskMat, analysisRegion, sourceImageSize } = storeToRefs(analysisStore)
+  const { targetMaskMat, hoveredHoleIndex, locatedHoleIndex, hoveredCrackIndex, locatedCrackIndex, binaryMaskMat, analysisRegion, sourceImageSize } = storeToRefs(analysisStore)
 
   // ==========================================
   // 2. DOM 引用
@@ -141,34 +141,49 @@ export const useImageCanvasCore = () => {
     
     const { drawX, drawY, drawWidth, drawHeight } = imageDrawParams.value
     
-    // 定位高亮优先于悬停高亮；定位后持久保持，悬停离开即消
-    const highlightIndex = locatedHoleIndex.value ?? hoveredHoleIndex.value
-    if (highlightIndex !== null && binaryMaskMat.value && !binaryMaskMat.value.empty()) {
-      const visualMask = maskToVisualWithHighlight(
-        binaryMaskMat.value,
-        highlightIndex,
-        sourceImageSize.value,
-        analysisRegion.value
-      )
-      
-      const tempCanvas = document.createElement('canvas')
-      tempCanvas.width = visualMask.cols
-      tempCanvas.height = visualMask.rows
-      cv.imshow(tempCanvas, visualMask)
-      
-      ctx.drawImage(tempCanvas, drawX, drawY, drawWidth, drawHeight)
-      visualMask.delete()
-    }
-    //绘制OpenCV蒙版
-    else if (targetMaskMat.value && !targetMaskMat.value.empty()) {
-      //创建临时Canvas绘制OpenCV蒙版
+    // 先绘制基础蒙版
+    if (targetMaskMat.value && !targetMaskMat.value.empty()) {
       const tempCanvas = document.createElement('canvas')
       tempCanvas.width = targetMaskMat.value.cols
       tempCanvas.height = targetMaskMat.value.rows
       cv.imshow(tempCanvas, targetMaskMat.value)
-
-      //把蒙版绘制到和图片完全一致的位置
       ctx.drawImage(tempCanvas, drawX, drawY, drawWidth, drawHeight)
+    }
+
+    // 孔洞模式：轮廓高亮（索引与分析一致，maskToVisualWithHighlight 可用）
+    const holeHighlightIndex = locatedHoleIndex.value ?? hoveredHoleIndex.value
+    if (analysisStore.currentMode !== 'crack' && holeHighlightIndex !== null && holeHighlightIndex > 0
+      && binaryMaskMat.value && !binaryMaskMat.value.empty()) {
+      const visualMask = maskToVisualWithHighlight(
+        binaryMaskMat.value,
+        holeHighlightIndex,
+        sourceImageSize.value,
+        analysisRegion.value
+      )
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = visualMask.cols
+      tempCanvas.height = visualMask.rows
+      cv.imshow(tempCanvas, visualMask)
+      ctx.drawImage(tempCanvas, drawX, drawY, drawWidth, drawHeight)
+      visualMask.delete()
+    }
+
+    // 裂缝模式：在中心绘制蓝色十字标记（避免轮廓索引匹配问题）
+    const crackCenter = analysisStore.locatedCrackInfo || analysisStore.hoveredCrackInfo
+    if (analysisStore.currentMode === 'crack' && crackCenter && crackCenter.centerX && crackCenter.centerY) {
+      const cx = crackCenter.centerX * (drawWidth / sourceImageSize.value.width) + drawX
+      const cy = crackCenter.centerY * (drawHeight / sourceImageSize.value.height) + drawY
+      ctx.save()
+      ctx.strokeStyle = '#00FFFF'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(cx - 8, cy); ctx.lineTo(cx + 8, cy)
+      ctx.moveTo(cx, cy - 8); ctx.lineTo(cx, cy + 8)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(cx, cy, 6, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
     }
     //执行自定义绘制回调，用于绘制校准线等
     if (customDrawCallback) {
@@ -232,14 +247,11 @@ export const useImageCanvasCore = () => {
   watch(scale, () => {
     drawTargetMask()
   })
-  // 监听悬停状态变化，重新绘制目标蒙版（带高亮）
-  watch(hoveredHoleIndex, () => {
-    drawTargetMask()
-  })
-  // 定位态变化也触发重绘
-  watch(locatedHoleIndex, () => {
-    drawTargetMask()
-  })
+  // 监听悬停/定位状态变化，重新绘制目标蒙版（带高亮）
+  watch(hoveredHoleIndex, () => { drawTargetMask() })
+  watch(locatedHoleIndex, () => { drawTargetMask() })
+  watch(hoveredCrackIndex, () => { drawTargetMask() })
+  watch(locatedCrackIndex, () => { drawTargetMask() })
 
   // ==========================================
   // 8. 生命周期

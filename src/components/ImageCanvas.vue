@@ -13,28 +13,40 @@
               <div
                 v-if="tooltipVisible && tooltipData"
                 class="hole-tooltip"
-                :class="{ 'located-tooltip': !!analysisStore.locatedHoleInfo }"
+                :class="{ 'located-tooltip': isLocated }"
                 :style="{ left: tooltipX + 'px', top: tooltipY + 'px' }"
               >
                 <div class="tooltip-title">
-                  {{ tooltipTitle }} #{{ tooltipData.index }}
-                  <span v-if="analysisStore.locatedHoleInfo" class="locate-badge">已定位</span>
+                  {{ tooltipTitle }}{{ tooltipData.index > 0 ? ' #' + tooltipData.index : '' }}
+                  <span v-if="isLocated" class="locate-badge">已定位</span>
                 </div>
                 <div class="tooltip-content">
-                  <div class="tooltip-item">
-                    <span class="tooltip-label">直径:</span>
-                    <span class="tooltip-value">{{ tooltipData.diameter.toFixed(3) }} {{ currentUnit }}</span>
-                  </div>
-                  <div class="tooltip-item">
-                    <span class="tooltip-label">面积:</span>
-                    <span class="tooltip-value">{{ tooltipData.area.toFixed(4) }} {{ currentUnit }}²</span>
-                  </div>
+                  <template v-if="analysisStore.currentMode === 'hole'">
+                    <div class="tooltip-item">
+                      <span class="tooltip-label">直径:</span>
+                      <span class="tooltip-value">{{ (tooltipData as any).diameter?.toFixed(3) ?? '-' }} {{ currentUnit }}</span>
+                    </div>
+                    <div class="tooltip-item">
+                      <span class="tooltip-label">面积:</span>
+                      <span class="tooltip-value">{{ (tooltipData as any).area?.toFixed(4) ?? '-' }} {{ currentUnit }}²</span>
+                    </div>
+                  </template>
+                  <template v-else-if="analysisStore.currentMode === 'crack'">
+                    <div class="tooltip-item">
+                      <span class="tooltip-label">长度:</span>
+                      <span class="tooltip-value">{{ (tooltipData as any).length > 0 ? (tooltipData as any).length.toFixed(3) + ' ' + currentUnit : '-' }}</span>
+                    </div>
+                    <div class="tooltip-item">
+                      <span class="tooltip-label">宽度:</span>
+                      <span class="tooltip-value">{{ (tooltipData as any).width > 0 ? (tooltipData as any).width.toFixed(3) + ' ' + currentUnit : '-' }}</span>
+                    </div>
+                  </template>
                 </div>
                 <el-button
-                  v-if="analysisStore.locatedHoleInfo"
+                  v-if="isLocated"
                   size="small" type="danger" plain
                   class="locate-dismiss-btn"
-                  @click.stop="analysisStore.clearLocatedHole()"
+                  @click.stop="clearLocated"
                 >取消定位</el-button>
               </div>
             </Transition>
@@ -92,7 +104,7 @@ import { storeToRefs } from 'pinia';
 import {useImageCanvasCore} from '@/composables/useImageCanvasCore'
 import { useRegionSelection } from '@/composables/useRegionSelection';
 import { useCalibrate } from '@/composables/useCalibrate';
-import { detectHoveredHole } from '@/utils/opencv/core';
+import { detectHoveredHole, detectHoveredCrack } from '@/utils/opencv/core';
 // ==========================================
 // 1. Store 引入
 // ==========================================
@@ -119,10 +131,16 @@ const currentUnit = computed(() => {
 const unitScale = computed(() => {
   return scaleType.value === 'macro' ? 1 : 1000
 })
-// Tooltip 数据源：定位态优先，否则取悬停态
+// Tooltip 数据源：定位态优先（孔洞或裂缝），否则取悬停态
 const tooltipData = computed(() => {
-  return analysisStore.locatedHoleInfo || analysisStore.hoveredHoleInfo
+  return analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo
+    || analysisStore.hoveredHoleInfo || analysisStore.hoveredCrackInfo
 })
+const isLocated = computed(() => !!(analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo))
+const clearLocated = () => {
+  analysisStore.clearLocatedHole()
+  analysisStore.clearLocatedCrack()
+}
 
 const tooltipTitle=computed(()=>{
   const mode=analysisStore.currentMode
@@ -237,51 +255,76 @@ const handleMouseUp = () => {
 }
 
 const handleMouseLeave = () => {
-  if (analysisStore.locatedHoleInfo) return  // 定位态下不清理
+  if (analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo) return  // 定位态下不清理
   analysisStore.clearHoveredHole()
+  analysisStore.clearHoveredCrack()
   analysisStore.currentHoverColor = null
   tooltipVisible.value = false
 }
 
-// 检测鼠标悬停的孔洞（定位态下跳过，不干扰定位 Tooltip 和高亮）
+// 检测鼠标悬停的孔洞/裂缝（定位态下跳过）
 const detectHoveredHoleOnCanvas = (canvasX: number, canvasY: number, rect: DOMRect) => {
-  if (analysisStore.locatedHoleInfo) return
+  if (analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo) return
 
   const binaryMask = analysisStore.binaryMaskMat
   if (!binaryMask || binaryMask.empty()) {
     analysisStore.clearHoveredHole()
+    analysisStore.clearHoveredCrack()
     tooltipVisible.value = false
     return
   }
 
-  // 转换坐标：Canvas坐标 -> 图片坐标
   const imageCoords = canvasToImageCoords(canvasX, canvasY)
-  
-  // 检查坐标是否有效
   if (isNaN(imageCoords.x) || isNaN(imageCoords.y) || imageCoords.x < 0 || imageCoords.y < 0) {
     analysisStore.clearHoveredHole()
+    analysisStore.clearHoveredCrack()
     tooltipVisible.value = false
     return
   }
 
-  // 检测悬停的孔洞
-  const holeInfo = detectHoveredHole(
-    binaryMask,
-    imageCoords.x,
-    imageCoords.y,
-    analysisRegion.value,
-    imageStore.pixelToMm
-  )
+  if (analysisStore.currentMode === 'crack') {
+    // 先检查像素是否在裂缝上（同一坐标系统和二值掩码）
+    const pv = binaryMask.ucharPtr(Math.round(imageCoords.y), Math.round(imageCoords.x))[0]
+    if (pv >= 128) {
+      // 尝试精确定位到具体裂缝
+      const crackInfo = detectHoveredCrack(binaryMask, imageCoords.x, imageCoords.y, analysisRegion.value, imageStore.pixelToMm,
+        analysisStore.crackThreshold.minLength,
+        analysisStore.crackThreshold.minWidth,
+        analysisStore.crackThreshold.maxWidth)
+      if (crackInfo) {
+        analysisStore.setHoveredCrackInfo({
+          index: crackInfo.index,
+          length: crackInfo.length * unitScale.value,
+          width: crackInfo.width * unitScale.value,
+          centerX: crackInfo.centerX,
+          centerY: crackInfo.centerY,
+        })
+      } else {
+        // 像素命中但轮廓未匹配时给占位信息，保证 Tooltip 可见
+        analysisStore.setHoveredCrackInfo({
+          index: -1, length: 0, width: 0,
+          centerX: Math.round(imageCoords.x),
+          centerY: Math.round(imageCoords.y),
+        })
+      }
+      tooltipX.value = rect.left + canvasX + 15
+      tooltipY.value = rect.top + canvasY - 10
+      tooltipVisible.value = true
+    } else {
+      analysisStore.clearHoveredCrack()
+      tooltipVisible.value = false
+    }
+    return
+  }
 
+  // 孔洞/粒度模式：原有逻辑
+  const holeInfo = detectHoveredHole(binaryMask, imageCoords.x, imageCoords.y, analysisRegion.value, imageStore.pixelToMm)
   if (holeInfo) {
-    // 更新悬停信息
     analysisStore.setHoveredHoleInfo({
       ...holeInfo,
       diameter: holeInfo.diameter * unitScale.value,
       area: holeInfo.area * unitScale.value * unitScale.value
     })
-    
-    // 更新Tooltip位置
     tooltipX.value = rect.left + canvasX + 15
     tooltipY.value = rect.top + canvasY - 10
     tooltipVisible.value = true
@@ -315,16 +358,33 @@ watch(()=>imageDrawParams.value,()=>{
     }
 },{deep:true})
 
-// 定位态：弹窗点击"定位"后，在孔洞中心显示 Tooltip
+// 定位态：弹窗点击"定位"后，在中心显示 Tooltip
 watch(() => analysisStore.locatedHoleInfo, (info) => {
   if (info && info.centerX && info.centerY) {
+    const el = imageCanvasRef.value
+    if (!el) return
+    const rect = el.getBoundingClientRect()
     const canvasPos = imageToCanvasCoords(info.centerX, info.centerY)
-    tooltipX.value = canvasPos.x
-    tooltipY.value = canvasPos.y
+    tooltipX.value = rect.left + canvasPos.x
+    tooltipY.value = rect.top + canvasPos.y
     tooltipVisible.value = true
   } else {
-    // 定位清除后，如果没有悬停态则隐藏 Tooltip
-    if (!analysisStore.hoveredHoleInfo) {
+    if (!analysisStore.hoveredHoleInfo && !analysisStore.locatedCrackInfo) {
+      tooltipVisible.value = false
+    }
+  }
+})
+watch(() => analysisStore.locatedCrackInfo, (info) => {
+  if (info && info.centerX && info.centerY) {
+    const el = imageCanvasRef.value
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const canvasPos = imageToCanvasCoords(info.centerX, info.centerY)
+    tooltipX.value = rect.left + canvasPos.x
+    tooltipY.value = rect.top + canvasPos.y
+    tooltipVisible.value = true
+  } else {
+    if (!analysisStore.hoveredHoleInfo && !analysisStore.locatedHoleInfo) {
       tooltipVisible.value = false
     }
   }
@@ -334,6 +394,9 @@ watch(() => analysisStore.locatedHoleInfo, (info) => {
 const handleCanvasClick = (e: MouseEvent) => {
   if (analysisStore.locatedHoleInfo) {
     analysisStore.clearLocatedHole()
+  }
+  if (analysisStore.locatedCrackInfo) {
+    analysisStore.clearLocatedCrack()
   }
 }
 </script>

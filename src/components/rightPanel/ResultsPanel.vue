@@ -54,6 +54,13 @@
       </el-button>
     </div>
 
+    <!-- 裂缝分析附属功能按钮 -->
+    <div v-if="analysisStore.currentMode === 'crack' && analysisStore.crackResults.crackList.length > 0" class="hole-extra-btns">
+      <el-button type="primary" class="hole-extra-btn" @click="openCrackDetail">
+        查看裂缝详情（{{ analysisStore.crackResults.crackList.length }} 个）
+      </el-button>
+    </div>
+
     <!-- 直径分布图弹窗 -->
     <el-dialog v-model="chartDialogVisible" title="孔洞直径分布" width="900px" top="5vh" destroy-on-close>
       <HoleDistributionChart :height="560" />
@@ -149,11 +156,88 @@
       <el-button @click="holeDetailVisible = false">关闭</el-button>
     </template>
   </el-dialog>
+
+  <!-- 裂缝详情弹窗 -->
+  <el-dialog
+    v-model="crackDetailVisible"
+    title="裂缝详情"
+    width="780px"
+    top="3vh"
+    destroy-on-close
+  >
+    <div class="hole-filter-bar">
+      <select v-model="crackValidityFilter" class="native-select" style="width:150px;">
+        <option value="">全部有效性</option>
+        <option value="effective">有效</option>
+        <option value="semiEffective">较有效</option>
+        <option value="ineffective">无效</option>
+        <option value="unset">未设置</option>
+      </select>
+      <select v-model="crackMaterialFilter" class="native-select" style="width:110px;">
+        <option value="">全部充填物</option>
+        <option value="mud">泥质</option>
+        <option value="calcite">方解石</option>
+        <option value="dolomite">白云石</option>
+        <option value="asphalt">沥青</option>
+        <option value="gypsum">石膏</option>
+        <option value="pyrite">黄铁矿</option>
+        <option value="kaolinite">高岭石</option>
+        <option value="quartz">石英</option>
+        <option value="unset">未设置</option>
+      </select>
+      <span class="filter-count">共 {{ filteredCrackList.length }} / {{ analysisStore.crackResults.crackList.length }} 个</span>
+    </div>
+    <el-table :data="filteredCrackList" size="small" max-height="480" stripe>
+      <el-table-column prop="index" label="#" width="50" />
+      <el-table-column prop="length" label="长度" width="100">
+        <template #default="{ row }">{{ (row.length * unitScale).toFixed(3) }} {{ currentUnit }}</template>
+      </el-table-column>
+      <el-table-column prop="width" label="宽度" width="100">
+        <template #default="{ row }">{{ (row.width * unitScale).toFixed(3) }} {{ currentUnit }}</template>
+      </el-table-column>
+      <el-table-column prop="area" label="面积" width="110">
+        <template #default="{ row }">{{ (row.area * unitScale * unitScale).toFixed(4) }} {{ currentUnit }}²</template>
+      </el-table-column>
+      <el-table-column label="有效性" width="170">
+        <template #default="{ row }">
+          <select v-model="row.validity" class="native-select">
+            <option value="">-</option>
+            <option value="effective">有效（未充填）</option>
+            <option value="semiEffective">较有效（半充填）</option>
+            <option value="ineffective">无效（全充填）</option>
+          </select>
+        </template>
+      </el-table-column>
+      <el-table-column label="充填物" width="140">
+        <template #default="{ row }">
+          <select v-model="row.fillingMaterial" class="native-select">
+            <option value="">-</option>
+            <option value="mud">泥质</option>
+            <option value="calcite">方解石</option>
+            <option value="dolomite">白云石</option>
+            <option value="asphalt">沥青</option>
+            <option value="gypsum">石膏</option>
+            <option value="pyrite">黄铁矿</option>
+            <option value="kaolinite">高岭石</option>
+            <option value="quartz">石英</option>
+          </select>
+        </template>
+      </el-table-column>
+      <el-table-column label="定位" width="60" fixed="right">
+        <template #default="{ row }">
+          <el-button size="small" type="primary" link @click="locateCrack(row)">定位</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <template #footer>
+      <el-button @click="crackDetailVisible = false">关闭</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useAnalysisStore, type HoleInfo } from '@/stores/analysisStore'
+import { useAnalysisStore, type HoleInfo, type CrackInfo } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 import HoleDistributionChart from './HoleDistributionChart.vue'
 
@@ -223,6 +307,47 @@ const categoryTagType = (cat: string) => {
   const map: Record<string, string> = { large: 'danger', medium: 'warning', small: 'success', pinhole: 'info' }
   return map[cat] || ''
 }
+
+// ---- 裂缝详情弹窗 + 筛选 ----
+const crackDetailVisible = ref(false)
+const crackValidityFilter = ref('')
+const crackMaterialFilter = ref('')
+
+const openCrackDetail = () => {
+  crackValidityFilter.value = ''
+  crackMaterialFilter.value = ''
+  crackDetailVisible.value = true
+}
+
+const locateCrack = (row: CrackInfo) => {
+  analysisStore.setLocatedCrack({
+    index: row.index,
+    length: row.length,
+    width: row.width,
+    centerX: row.centerX,
+    centerY: row.centerY,
+  })
+  crackDetailVisible.value = false
+}
+
+const filteredCrackList = computed(() => {
+  let list = analysisStore.crackResults.crackList
+  if (crackValidityFilter.value) {
+    if (crackValidityFilter.value === 'unset') {
+      list = list.filter(c => !c.validity)
+    } else {
+      list = list.filter(c => c.validity === crackValidityFilter.value)
+    }
+  }
+  if (crackMaterialFilter.value) {
+    if (crackMaterialFilter.value === 'unset') {
+      list = list.filter(c => !c.fillingMaterial)
+    } else {
+      list = list.filter(c => c.fillingMaterial === crackMaterialFilter.value)
+    }
+  }
+  return list
+})
 </script>
 
 <style scoped>

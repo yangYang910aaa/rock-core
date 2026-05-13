@@ -22,7 +22,7 @@ export const holeSegmentation = (
   const dst = new cv.Mat()
 
   try {
-    cv.cvtColor(roiSrc, gray, cv.COLOR_BGRA2GRAY)
+    cv.cvtColor(roiSrc, gray, cv.COLOR_RGBA2GRAY)
     
     //创建单通道Mat作为上下界，匹配inRange的类型要求
     const lowerBound = new cv.Mat(1, 1, cv.CV_8UC1, new cv.Scalar(threshold.minThreshold))
@@ -67,7 +67,7 @@ export const crackSegmentation = (
 
   try {
     // 1.转换为灰度图
-    cv.cvtColor(roiSrc, gray, cv.COLOR_BGRA2GRAY)
+    cv.cvtColor(roiSrc, gray, cv.COLOR_RGBA2GRAY)
     // 2. 高斯滤波：去除噪点，核大小5x5
     cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0)
     // 3. Canny边缘检测：提取裂缝边缘
@@ -120,7 +120,7 @@ export const sizeSegmentation = (
   try {
 
     // 1. 预处理：转灰度图 + 基础去噪
-    cv.cvtColor(roiSrc, gray, cv.COLOR_BGRA2GRAY)
+    cv.cvtColor(roiSrc, gray, cv.COLOR_RGBA2GRAY)
     cv.medianBlur(gray, blurBase, 3)
     //先检查裁剪后的图像是否有效
     if (roiSrc.empty()) {

@@ -16,6 +16,7 @@ import type {
   HoleResults,
   HoleInfo,
   CrackResults,
+  CrackInfo,
   SizeResults,
 } from '@/stores/analysisStore'
 import {
@@ -277,6 +278,7 @@ export const executeFullAnalysis = async (
         let totalLength = 0
         let totalWidth = 0
         let totalCrackArea = 0
+        const crackList: CrackInfo[] = []
 
         for (let i = 0; i < contours.size(); i++) {
           const contour = contours.get(i)
@@ -291,6 +293,25 @@ export const executeFullAnalysis = async (
 
           //计算裂缝面积(用最小外接矩形的面积)
           const area = cv.contourArea(contour) * pixelToMm * pixelToMm
+
+          // 计算轮廓中心（图像像素坐标）
+          const moments = cv.moments(contour)
+          let cx = 0, cy = 0
+          if (moments.m00 > 0) {
+            cx = Math.round(moments.m10 / moments.m00)
+            cy = Math.round(moments.m01 / moments.m00)
+          }
+
+          crackList.push({
+            index: crackList.length + 1,
+            length: Number(length.toFixed(4)),
+            width: Number(width.toFixed(4)),
+            area: Number(area.toFixed(4)),
+            centerX: cx,
+            centerY: cy,
+            validity: '',
+            fillingMaterial: '',
+          })
 
           //统计符合条件的裂缝
           totalCount++
@@ -319,8 +340,13 @@ export const executeFullAnalysis = async (
           avgWidth: totalCount > 0 ? Number((totalWidth / totalCount).toFixed(4)) : 0,
           faceRate: Number(((totalCrackArea / regionAreaMm2) * 100).toFixed(2)),
           lineDensity: regionDiagonalLength > 0 ? Number((totalCount / regionDiagonalLength).toFixed(4)) : 0,
-          areaDensity: regionAreaM2 > 0 ? Number((totalLengthM / regionAreaM2).toFixed(4)) : 0
+          areaDensity: regionAreaM2 > 0 ? Number((totalLengthM / regionAreaM2).toFixed(4)) : 0,
+          crackList
         } as CrackResults
+
+        if (totalCount === 0) {
+          ElMessage.warning('未检测到裂缝，请尝试调低最小长度或调整宽度范围（当前标尺下阈值可能过于严格）')
+        }
         //7.释放内存
         binaryMask.delete()
         contours.delete()
