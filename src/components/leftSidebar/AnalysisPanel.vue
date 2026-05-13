@@ -41,10 +41,17 @@
       <!-- 分组2：二次编辑 -->
       <div class="operate-group">
         <div class="group-title">二次编辑</div>
-        <!-- 参数调节滑块 -->
+        <!-- 操作按钮 -->
+        <div class="btn-wrapper">
+          <el-button class="sidebar-btn" @click="openDenoiseDialog">区域去噪</el-button>
+        </div>
+        <div class="btn-wrapper">
+          <el-button class="sidebar-btn" @click="handleFillHoles">孔洞填充</el-button>
+        </div>
+        <!-- 膨胀/腐蚀强度滑块 -->
         <div class="param-section">
           <div class="param-item">
-            <span class="param-label">去噪/膨胀/腐蚀强度</span>
+            <span class="param-label">膨胀/腐蚀强度</span>
             <div class="param-control">
               <span class="param-value">{{ morphKernelSize }}</span>
               <el-slider
@@ -59,13 +66,6 @@
           <div class="param-reset">
             <el-button size="small" @click="resetMorphParams">重置默认值</el-button>
           </div>
-        </div>
-        <!-- 操作按钮 -->
-        <div class="btn-wrapper">
-          <el-button class="sidebar-btn" @click="openDenoiseDialog">区域去噪</el-button>
-        </div>
-        <div class="btn-wrapper">
-          <el-button class="sidebar-btn" @click="handleFillHoles">孔洞填充</el-button>
         </div>
         <div class="btn-group-row">
           <el-button class="sidebar-btn small-btn" @click="handleDilate">区域膨胀</el-button>
@@ -107,9 +107,9 @@
         <div class="dialog-item">
           <p class="dialog-tip">开运算去噪强度（值越大，去噪越强）</p>
           <div class="slider-row">
-            <span class="slider-label">强度：{{ morphKernelSize }}</span>
+            <span class="slider-label">强度：{{ denoiseKernelSize }}</span>
             <el-slider
-              v-model="morphKernelSize"
+              v-model="denoiseKernelSize"
               :min="1"
               :max="11"
               :step="2"
@@ -209,7 +209,8 @@ const handleResetInitial = () => {
 // 二次编辑功能实现
 // ==========================================
 // 操作参数
-const morphKernelSize = ref<number>(3) // 膨胀/腐蚀/去噪的核大小:1-11的奇数，默认3
+const morphKernelSize = ref<number>(3) // 膨胀/腐蚀核大小:1-11的奇数，默认3
+const denoiseKernelSize = ref<number>(3) // 去噪核大小（独立，不与膨胀/腐蚀共享）
 const DEFAULT_KERNEL_SIZE = 3 // 膨胀/腐蚀/去噪的默认核大小
 const FILL_KERNEL_SIZE = 5 // 孔洞填充的默认核大小
 
@@ -233,15 +234,16 @@ const resetMorphParams = () => {
 const resetDenoiseParams = () => {
   denoiseCondition.value = DEFAULT_DENOISE_CONDITION
   denoisePixelSize.value = DEFAULT_DENOISE_PIXEL_SIZE
-  morphKernelSize.value = DEFAULT_KERNEL_SIZE
+  denoiseKernelSize.value = DEFAULT_KERNEL_SIZE
   ElMessage.success('已重置去噪参数为默认值')
 }
 
 // 打开区域去噪弹窗
 const openDenoiseDialog = () => {
   if (!checkMaskExists()) return
-  // 备份当前蒙版
+  // 备份当前蒙版，同步当前膨胀/腐蚀强度作为去噪强度初始值
   backupBinaryMask = copyMat(binaryMaskMat.value!)
+  denoiseKernelSize.value = morphKernelSize.value
   denoiseDialogVisible.value = true
 }
 
@@ -261,7 +263,7 @@ const handleDenoisePreview = () => {
     // 执行去噪,不保留历史,仅预览
     const previewMask = denoiseRegion(
       binaryMaskMat.value,
-      morphKernelSize.value,
+      denoiseKernelSize.value,
       analysisRegion.value,
       2,
       denoiseCondition.value,
@@ -294,7 +296,7 @@ const handleDenoiseConfirm = () => {
     // 执行去噪
     const newBinaryMask = denoiseRegion(
       binaryMaskMat.value,
-      morphKernelSize.value,
+      denoiseKernelSize.value,
       analysisRegion.value,
       2,
       denoiseCondition.value,
