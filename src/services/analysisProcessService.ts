@@ -428,8 +428,11 @@ export const executeFullAnalysis = async (
       analysisStore.binaryMaskMat = markRaw(copyMat(fullBinaryMask))
       deleteMatSafe(oldBinaryMask)
 
-      // 可视化 RGBA 蒙版：用于画布红色叠加显示
-      const newVisualMask = maskToVisual(fullBinaryMask, { width, height }, region)
+      // 可视化 RGBA 蒙版：maskToVisual 要求传入 ROI 尺寸的 binaryMask
+      const visualSource = region.width > 0 && region.height > 0
+        ? finalBinaryMask // 已经是 ROI 尺寸，直接传入
+        : fullBinaryMask
+      const newVisualMask = maskToVisual(visualSource, { width, height }, region)
       const oldVisualMask = analysisStore.targetMaskMat
       analysisStore.targetMaskMat = markRaw(newVisualMask)
       deleteMatSafe(oldVisualMask)
