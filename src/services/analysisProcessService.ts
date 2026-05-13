@@ -434,6 +434,9 @@ export const executeFullAnalysis = async (
       analysisStore.targetMaskMat = markRaw(newVisualMask)
       deleteMatSafe(oldVisualMask)
 
+      // 初始化蒙版历史，保证后续的撤销/反选等操作以当前分析结果为基准
+      analysisStore.initMaskHistory()
+
       fullBinaryMask.delete()
     }
 
