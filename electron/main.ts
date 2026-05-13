@@ -71,6 +71,40 @@ function createWindow() {
       }
     })
 
+    // ---- 项目文件保存 / 打开 ----
+    ipcMain.handle('project-save', async (_event, jsonContent: string) => {
+      if (!mainWindow) return { success: false, canceled: true }
+      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+        title: '保存项目',
+        defaultPath: `rock-core-project-${Date.now()}.json`,
+        filters: [{ name: 'JSON 项目文件', extensions: ['json'] }]
+      })
+      if (canceled || !filePath) return { success: false, canceled: true }
+      try {
+        fs.writeFileSync(filePath, jsonContent, 'utf-8')
+        return { success: true, canceled: false, filePath }
+      } catch (error) {
+        console.error('保存项目失败:', error)
+        return { success: false, canceled: false }
+      }
+    })
+
+    ipcMain.handle('project-open', async () => {
+      if (!mainWindow) return null
+      const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+        title: '打开项目',
+        filters: [{ name: 'JSON 项目文件', extensions: ['json'] }],
+        properties: ['openFile']
+      })
+      if (canceled || filePaths.length === 0) return null
+      try {
+        return fs.readFileSync(filePaths[0], 'utf-8')
+      } catch (error) {
+        console.error('读取项目文件失败:', error)
+        return null
+      }
+    })
+
     /**
      * 生成PDF报告事件
      */

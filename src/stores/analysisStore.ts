@@ -116,6 +116,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const isAnalyzing=ref<boolean>(false)
     const showMaskOverlay=ref<boolean>(true)
     const reportPreviewVisible=ref<boolean>(false)
+    const isLoadingProject=ref<boolean>(false)
 
    // ----
    // 岩心基础信息状态
@@ -544,6 +545,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,
+    isLoadingProject,
     colorMatchEnabled,
     isPickingColor,
     pickedColor,

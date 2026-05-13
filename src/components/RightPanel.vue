@@ -147,13 +147,16 @@ const handleStartAnalysis = async () => {
   }
 }
 
+// 加载项目期间跳过所有 watcher
+const skipWatch = () => analysisStore.isLoadingProject || isResetting.value
+
 // ---- 阈值/模式/区域变化时实时预览 ----
 watch(() => holeThreshold.value, () => {
-  if (!isResetting.value && currentMode.value === 'hole') debouncePreview()
+  if (!skipWatch() && currentMode.value === 'hole') debouncePreview()
 }, { deep: true })
 
 watch(() => [crackThreshold.value.cannyLow, crackThreshold.value.cannyHigh], () => {
-  if (!isResetting.value && currentMode.value === 'crack') debouncePreview()
+  if (!skipWatch() && currentMode.value === 'crack') debouncePreview()
 })
 
 watch(() => [
@@ -161,11 +164,12 @@ watch(() => [
   sizeThreshold.value.coarseSensitivity,
   sizeThreshold.value.fineSensitivity,
 ], () => {
-  if (!isResetting.value && currentMode.value === 'size') debouncePreview()
+  if (!skipWatch() && currentMode.value === 'size') debouncePreview()
 })
 
 // 切换分析模式时清空旧蒙版和结果
 watch(() => currentMode.value, (newMode, oldMode) => {
+  if (analysisStore.isLoadingProject) return
   if (newMode !== oldMode) {
     analysisStore.clearTargetMask()
     analysisStore.resetResults()
@@ -174,11 +178,12 @@ watch(() => currentMode.value, (newMode, oldMode) => {
 
 // 切换分析区域时实时预览
 watch(() => analysisStore.analysisRegion, () => {
-  if (!isResetting.value) debouncePreview()
+  if (!skipWatch()) debouncePreview()
 }, { deep: true })
 
 // 分析区域模式从全图切到局部时清空
 watch(() => analysisStore.regionMode, (newMode, oldMode) => {
+  if (analysisStore.isLoadingProject) return
   if (oldMode === 'full' && newMode === 'rect') {
     analysisStore.resetResults()
     analysisStore.clearTargetMask()
@@ -187,26 +192,27 @@ watch(() => analysisStore.regionMode, (newMode, oldMode) => {
 
 // 颜色匹配：取色或容差变化时实时预览
 watch(() => analysisStore.pickedColor, () => {
-  if (!isResetting.value && analysisStore.colorMatchEnabled && currentMode.value === 'hole') debouncePreview()
+  if (!skipWatch() && analysisStore.colorMatchEnabled && currentMode.value === 'hole') debouncePreview()
 })
 watch(() => analysisStore.colorMatchTolerance, () => {
-  if (!isResetting.value && analysisStore.colorMatchEnabled && currentMode.value === 'hole') debouncePreview()
+  if (!skipWatch() && analysisStore.colorMatchEnabled && currentMode.value === 'hole') debouncePreview()
 })
 // 颜色匹配开关切换时触发预览
 watch(() => analysisStore.colorMatchEnabled, (enabled) => {
-  if (enabled && analysisStore.pickedColor && !isResetting.value && currentMode.value === 'hole') {
+  if (!skipWatch() && enabled && analysisStore.pickedColor && currentMode.value === 'hole') {
     debouncePreview()
   }
 })
 // 连续区域开关切换时触发预览
 watch(() => analysisStore.contiguousRegionEnabled, () => {
-  if (!isResetting.value && analysisStore.colorMatchEnabled && analysisStore.pickedColor && currentMode.value === 'hole') {
+  if (!skipWatch() && analysisStore.colorMatchEnabled && analysisStore.pickedColor && currentMode.value === 'hole') {
     debouncePreview()
   }
 })
 
 // 切换图片时清空旧蒙版
 watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
+  if (analysisStore.isLoadingProject) return
   if (newUrl && newUrl !== oldUrl) {
     analysisStore.clearTargetMask()
   }

@@ -20,6 +20,7 @@
         <el-sub-menu index="file">
           <template #title>文件</template>
           <el-menu-item index="file-open">打开岩心图片</el-menu-item>
+          <el-menu-item index="file-open-project">打开项目</el-menu-item>
           <el-menu-item index="file-save">保存项目</el-menu-item>
           <el-menu-item index="file-quit">退出软件</el-menu-item>
         </el-sub-menu>
@@ -82,13 +83,15 @@
 import { useImageStore, type PreprocessType } from '@/stores/imageStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { useReportExport } from '@/composables/useReportExport'
-import { ref, onMounted,onBeforeUnmount } from 'vue' 
+import { useProjectIO } from '@/composables/useProjectIO'
+import { ref, onMounted,onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 
 const { ipcRenderer } = window.require('electron')
 const imageStore = useImageStore()
 const analysisStore = useAnalysisStore()
 const { handleExportReport } = useReportExport()
+const { saveProject, loadProject } = useProjectIO()
 
 // 最大化状态：由主进程推送，覆盖所有触发方式（按钮/双击/快捷键）
 const isMaximized = ref(false)
@@ -139,6 +142,8 @@ const preprocessActions: Record<string, PreprocessType> = {
 const handleMenuSelect = (index: string) => {
   // 文件
   if (index === 'file-open') handleOpenImage()
+  else if (index === 'file-open-project') loadProject()
+  else if (index === 'file-save') saveProject()
   else if (index === 'file-quit') handleClose()
   // 视图
   else if (index === 'reload') handleReload()
