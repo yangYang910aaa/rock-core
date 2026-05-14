@@ -1,6 +1,6 @@
 <template>
-  <div v-if="holeList.length > 0" class="distribution-chart" :style="{ height: height + 'px' }">
-    <Bar :data="chartData as any" :options="chartOptions as any" />
+  <div v-if="holeList.length" class="distribution-chart" :style="{ height: height + 'px' }">
+    <Bar :data="chartDataAny" :options="chartOptionsAny" />
   </div>
 </template>
 
@@ -145,6 +145,10 @@ const chartOptions = computed(() => ({
     },
   },
 }))
+
+// vue-chartjs Bar 组件类型窄约束与混合图表冲突，在 script 层做类型放宽
+const chartDataAny = computed(() => chartData.value as any)
+const chartOptionsAny = computed(() => chartOptions.value as any)
 </script>
 
 <style scoped>
