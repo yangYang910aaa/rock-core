@@ -261,7 +261,7 @@ export const detectHoveredCrack = (
   mouseY: number,
   region: AnalysisRegion = { x: 0, y: 0, width: 0, height: 0 },
   pixelToMm: number = 0.1,
-  minLength = 1, minWidth = 0.1, maxWidth = 5.0
+  minLength = 1, minWidth = 0.1, maxWidth = 10.0
 ): CrackHoverInfo | null => {
   if (mouseX < 0 || mouseX >= binaryMask.cols || mouseY < 0 || mouseY >= binaryMask.rows) return null
   if (region.width > 0 && region.height > 0) {

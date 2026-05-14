@@ -87,6 +87,21 @@ export const crackSegmentation = (
     const kernelOpen=cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2))
     cv.morphologyEx(dst, dst, cv.MORPH_OPEN, kernelOpen)
     kernelOpen.delete()
+
+    // 7. 排除孔洞区域：先用固定阈值检测暗区（孔洞），膨胀后从裂缝掩码中去除
+    const holeMask = new cv.Mat()
+    const lower = new cv.Mat(1, 1, cv.CV_8UC1, new cv.Scalar(0))
+    const upper = new cv.Mat(1, 1, cv.CV_8UC1, new cv.Scalar(80))
+    cv.inRange(gray, lower, upper, holeMask)
+    lower.delete()
+    upper.delete()
+    const kernelHole = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5))
+    cv.dilate(holeMask, holeMask, kernelHole)
+    kernelHole.delete()
+    cv.bitwise_not(holeMask, holeMask)
+    cv.bitwise_and(dst, holeMask, dst)
+    holeMask.delete()
+
     return dst
   } catch (error) {
     console.error('裂缝分析阈值分割失败:', error)

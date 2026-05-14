@@ -157,7 +157,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
    // 阈值状态
    // ----
     const holeThreshold=ref<HoleThreshold>({minThreshold:0,maxThreshold:128})
-    const crackThreshold=ref<CrackThreshold>({minWidth:0.1,maxWidth:5.0,minLength:1,cannyLow:50,cannyHigh:150})
+    const crackThreshold=ref<CrackThreshold>({minWidth:0.1,maxWidth:10.0,minLength:1,cannyLow:50,cannyHigh:150})
     const sizeThreshold=ref<SizeThreshold>({rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50})
 
    // ----
@@ -227,7 +227,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     }
     const resetThresholds=()=>{
         holeThreshold.value={minThreshold:0,maxThreshold:128}
-        crackThreshold.value={minWidth:0.1,maxWidth:5.0,minLength:1,cannyLow:50,cannyHigh:150}
+        crackThreshold.value={minWidth:0.1,maxWidth:10.0,minLength:1,cannyLow:50,cannyHigh:150}
         sizeThreshold.value={rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50}
         colorMatchEnabled.value=false
         isPickingColor.value=false
@@ -321,6 +321,15 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const clearHoleSelection = () => {
       selectedHoleIndex.value = null
     }
+
+    // 画布点击选中裂缝
+    const selectedCrackIndex = ref<number | null>(null)
+    const selectCrack = (index: number) => {
+      selectedCrackIndex.value = index
+    }
+    const clearCrackSelection = () => {
+      selectedCrackIndex.value = null
+    }
     
     const resetAll=()=>{
         currentMode.value='hole'
@@ -338,6 +347,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         clearLocatedHole()
         clearLocatedCrack()
         clearHoleSelection()
+        clearCrackSelection()
     }
 
     // ----
@@ -610,6 +620,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     selectedHoleIndex,
     selectHole,
     clearHoleSelection,
+    selectedCrackIndex,
+    selectCrack,
+    clearCrackSelection,
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,

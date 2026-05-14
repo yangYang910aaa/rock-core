@@ -101,6 +101,52 @@
               </div>
             </div>
 
+            <!-- 裂缝点击选择 → 属性编辑卡片 -->
+            <div
+              v-if="selectedCrack"
+              class="hole-edit-card"
+              :style="{ left: crackCardPos.x + 'px', top: crackCardPos.y + 'px' }"
+              @click.stop
+            >
+              <div class="card-header">
+                <span>裂缝 #{{ selectedCrack.index }}</span>
+                <span class="card-close" @click="analysisStore.clearCrackSelection()">×</span>
+              </div>
+              <div class="card-body">
+                <div class="card-row">
+                  <span class="card-label">长度:</span>
+                  <span>{{ (selectedCrack.length * unitScale).toFixed(3) }} {{ currentUnit }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">宽度:</span>
+                  <span>{{ (selectedCrack.width * unitScale).toFixed(3) }} {{ currentUnit }}</span>
+                </div>
+                <div class="card-row card-select">
+                  <span class="card-label">有效性:</span>
+                  <select v-model="selectedCrack.validity" class="native-select">
+                    <option value="">-</option>
+                    <option value="effective">有效（未充填）</option>
+                    <option value="semiEffective">较有效（半充填）</option>
+                    <option value="ineffective">无效（全充填）</option>
+                  </select>
+                </div>
+                <div class="card-row card-select">
+                  <span class="card-label">充填物:</span>
+                  <select v-model="selectedCrack.fillingMaterial" class="native-select">
+                    <option value="">-</option>
+                    <option value="mud">泥质</option>
+                    <option value="calcite">方解石</option>
+                    <option value="dolomite">白云石</option>
+                    <option value="asphalt">沥青</option>
+                    <option value="gypsum">石膏</option>
+                    <option value="pyrite">黄铁矿</option>
+                    <option value="kaolinite">高岭石</option>
+                    <option value="quartz">石英</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <!-- 三层 Canvas 容器 -->
             <div class="canvas-wrapper" ref="containerRef">
                 <!-- 底层 Canvas：显示图片 -->
@@ -297,8 +343,29 @@ const handleMouseDown = (e: MouseEvent) => {
         return
       }
     }
-    // 点击非蒙版区域：清除选中
     analysisStore.clearHoleSelection()
+    analysisStore.clearLocatedHole()
+    analysisStore.clearLocatedCrack()
+  }
+
+  // 裂缝模式：点击蒙版选中裂缝
+  if (analysisStore.currentMode === 'crack' && analysisStore.crackResults.crackList.length > 0
+    && analysisStore.binaryMaskMat && !analysisStore.binaryMaskMat.empty()) {
+    const imageCoords = canvasToImageCoords(canvasX, canvasY)
+    if (!isNaN(imageCoords.x) && !isNaN(imageCoords.y)) {
+      const info = detectHoveredCrack(analysisStore.binaryMaskMat, imageCoords.x, imageCoords.y, analysisRegion.value, imageStore.pixelToMm,
+        analysisStore.crackThreshold.minLength,
+        analysisStore.crackThreshold.minWidth,
+        analysisStore.crackThreshold.maxWidth)
+      if (info && info.index > 0) {
+        analysisStore.selectCrack(info.index)
+        crackCardPos.value = { x: e.clientX + 12, y: e.clientY - 12 }
+        analysisStore.clearLocatedHole()
+        analysisStore.clearLocatedCrack()
+        return
+      }
+    }
+    analysisStore.clearCrackSelection()
     analysisStore.clearLocatedHole()
     analysisStore.clearLocatedCrack()
   }
@@ -476,8 +543,14 @@ watch(() => analysisStore.locatedCrackInfo, (info) => {
 })
 
 // 点击蒙版空白处取消定位
-// 画布点击选择孔洞
+// 画布点击选择孔洞 / 裂缝
 const holeCardPos = ref({ x: 0, y: 0 })
+const crackCardPos = ref({ x: 0, y: 0 })
+const selectedCrack = computed(() => {
+  const idx = analysisStore.selectedCrackIndex
+  if (idx === null) return null
+  return analysisStore.crackResults.crackList[idx - 1] ?? null
+})
 </script>
 
 <style scoped>

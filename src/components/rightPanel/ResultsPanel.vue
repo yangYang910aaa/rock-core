@@ -78,8 +78,9 @@
     top="3vh"
     destroy-on-close
   >
-    <!-- 筛选栏：三个维度自由组合，实时过滤孔洞列表 -->
+    <!-- 筛选栏：序号搜索 + 三个维度自由组合，实时过滤孔洞列表 -->
     <div class="hole-filter-bar">
+      <input v-model="indexSearch" class="native-select" style="width:80px;" placeholder="#序号" />
       <select v-model="categoryFilter" class="native-select" style="width:110px;">
         <option value="">全部分类</option>
         <option value="large">大洞</option>
@@ -166,6 +167,7 @@
     destroy-on-close
   >
     <div class="hole-filter-bar">
+      <input v-model="crackIndexSearch" class="native-select" style="width:80px;" placeholder="#序号" />
       <select v-model="crackValidityFilter" class="native-select" style="width:150px;">
         <option value="">全部有效性</option>
         <option value="effective">有效</option>
@@ -265,19 +267,25 @@ const holeDetailVisible = ref(false)
 const chartDialogVisible = ref(false)
 // 打开弹窗时清空上次筛选条件，避免残留状态
 const openHoleDetail = () => {
+  indexSearch.value = ''
   categoryFilter.value = ''
   validityFilter.value = ''
   materialFilter.value = ''
   holeDetailVisible.value = true
 }
-// 三个筛选维度，可自由组合（空字符串 = 全部）
+// 筛选维度：序号 + 分类 + 有效性 + 充填物，可自由组合
+const indexSearch = ref('')
 const categoryFilter = ref('')
 const validityFilter = ref('')
 const materialFilter = ref('')
 
-// 按分类/有效性/充填物组合过滤（unset = 未填写，快速定位）
+// 按序号/分类/有效性/充填物组合过滤（unset = 未填写，快速定位）
 const filteredHoleList = computed(() => {
   let list = analysisStore.holeResults.holeList
+  if (indexSearch.value) {
+    const n = parseInt(indexSearch.value)
+    if (!isNaN(n)) list = list.filter(h => h.index === n)
+  }
   if (categoryFilter.value) {
     list = list.filter(h => h.category === categoryFilter.value)
   }
@@ -310,10 +318,12 @@ const categoryTagType = (cat: string) => {
 
 // ---- 裂缝详情弹窗 + 筛选 ----
 const crackDetailVisible = ref(false)
+const crackIndexSearch = ref('')
 const crackValidityFilter = ref('')
 const crackMaterialFilter = ref('')
 
 const openCrackDetail = () => {
+  crackIndexSearch.value = ''
   crackValidityFilter.value = ''
   crackMaterialFilter.value = ''
   crackDetailVisible.value = true
@@ -332,6 +342,10 @@ const locateCrack = (row: CrackInfo) => {
 
 const filteredCrackList = computed(() => {
   let list = analysisStore.crackResults.crackList
+  if (crackIndexSearch.value) {
+    const n = parseInt(crackIndexSearch.value)
+    if (!isNaN(n)) list = list.filter(c => c.index === n)
+  }
   if (crackValidityFilter.value) {
     if (crackValidityFilter.value === 'unset') {
       list = list.filter(c => !c.validity)
