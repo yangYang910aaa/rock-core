@@ -82,6 +82,10 @@
 </template>
 
 <script setup lang="ts">
+// ----
+// 分析结果面板：三个模式的统计数据显示 + 详情弹窗入口 + 直径分布图
+// 三个详情弹窗各自独立为 HoleDetailDialog / CrackDetailDialog / ParticleDetailDialog
+// ----
 import { ref, computed } from 'vue'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
@@ -93,10 +97,13 @@ import ParticleDetailDialog from './ParticleDetailDialog.vue'
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
 
+// 单位换算
 const currentUnit = computed(() => imageStore.scaleType === 'macro' ? 'mm' : 'μm')
 const unitScale = computed(() => imageStore.scaleType === 'macro' ? 1 : 1000)
+
 const chartDialogVisible = ref(false)
 
+// 弹窗组件 ref，通过 .open() 方法打开
 const holeDialog = ref<InstanceType<typeof HoleDetailDialog>>()
 const crackDialog = ref<InstanceType<typeof CrackDetailDialog>>()
 const particleDialog = ref<InstanceType<typeof ParticleDetailDialog>>()

@@ -115,18 +115,30 @@
 </template>
 
 <script setup lang="ts">
+// ----
+// 孔洞详情弹窗：逐孔列表展示 + 筛选 / 批量编辑 / 范围选择 / 分页 / 定位
+// 通过 defineExpose({ open }) 暴露打开方法，由 ResultsPanel 通过 ref 调用
+// ----
 import { ref, computed, watch, nextTick } from 'vue'
 import { useAnalysisStore, type HoleInfo } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
-const currentUnit = computed(() => imageStore.scaleType === 'macro' ? 'mm' : 'μm')
-const unitScale = computed(() => imageStore.scaleType === 'macro' ? 1 : 1000)
 
+// ----
+// 基础状态
+// ----
 const visible = ref(false)
 const holeTableRef = ref<any>(null)
 
+// 单位换算
+const currentUnit = computed(() => imageStore.scaleType === 'macro' ? 'mm' : 'μm')
+const unitScale = computed(() => imageStore.scaleType === 'macro' ? 1 : 1000)
+
+// ----
+// 对外方法
+// ----
 const open = () => {
   indexSearch.value = ''
   categoryFilter.value = ''
@@ -146,11 +158,15 @@ const locateHole = (row: HoleInfo) => {
   visible.value = false
 }
 
+// ----
+// 筛选状态 + 过滤逻辑
+// ----
 const indexSearch = ref('')
 const categoryFilter = ref('')
 const validityFilter = ref('')
 const materialFilter = ref('')
 
+// 支持序号 / 分类 / 有效性 / 充填物四维组合过滤
 const filteredHoleList = computed(() => {
   let list = analysisStore.holeResults.holeList
   if (indexSearch.value) { const n = parseInt(indexSearch.value); if (!isNaN(n)) list = list.filter(h => h.index === n) }
@@ -165,17 +181,26 @@ const filteredHoleList = computed(() => {
   }
   return list
 })
+
+// ----
+// 分页
+// ----
 const holePage = ref(1)
 const pagedHoleList = computed(() => filteredHoleList.value.slice((holePage.value - 1) * 100, holePage.value * 100))
 
+// ----
+// 批量编辑
+// ----
 const holeSelected = ref<any[]>([])
 const batchHoleValidity = ref('')
 const batchHoleMaterial = ref('')
 const holeRangeInput = ref('')
 const onHoleSelectionChange = (rows: any[]) => { holeSelected.value = rows }
+// 选择下拉值后立即应用到所有勾选行，然后复位下拉
 watch(batchHoleValidity, (v) => { if (!v) return; holeSelected.value.forEach((r: any) => r.validity = v === '__reset__' ? '' : v); batchHoleValidity.value = '' })
 watch(batchHoleMaterial, (v) => { if (!v) return; holeSelected.value.forEach((r: any) => r.fillingMaterial = v === '__reset__' ? '' : v); batchHoleMaterial.value = '' })
 const batchResetHole = () => holeSelected.value.forEach((r: any) => { r.validity = ''; r.fillingMaterial = '' })
+// 解析 "5 8 1-10" 格式，勾选对应序号的表格行
 const applyHoleRange = () => {
   const s = new Set<number>()
   holeRangeInput.value.split(/\s+/).forEach(part => {
@@ -188,6 +213,9 @@ const applyHoleRange = () => {
   filteredHoleList.value.forEach(row => { (holeTableRef.value as any)?.toggleRowSelection(row, s.has(row.index)) })
 }
 
+// ----
+// 分类标签映射
+// ----
 const categoryLabel = (cat: string) => {
   const map: Record<string, string> = { large: '大洞', medium: '中洞', small: '小洞', pinhole: '针孔' }
   return map[cat] || cat
@@ -202,20 +230,54 @@ defineExpose({ open })
 
 <style scoped>
 .native-select {
-  width: 100%; height: 28px; padding: 0 6px; font-size: 12px;
-  border: 1px solid #dcdfe6; border-radius: 4px; background: #fff;
-  color: #606266; outline: none; cursor: pointer;
+  width: 100%;
+  height: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+  border: 1px solid #dcdfe6; 
+  border-radius: 4px; 
+  background: #fff;
+  border-radius: 4px; 
+  background: #fff;
+  color: #606266; 
+  outline: none; 
+  cursor: pointer;
 }
-.native-select:focus { border-color: #409eff; }
+.native-select:focus {
+   border-color: #409eff; 
+}
 .hole-filter-bar {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #ebeef5;
+  display: flex;
+  align-items: center; 
+  gap: 10px;
+  margin-bottom: 12px; 
+  padding-bottom: 10px; 
+  border-bottom: 1px solid #ebeef5;
 }
-.filter-count { font-size: 12px; color: #909399; margin-left: auto; }
+.filter-count {
+   font-size: 12px; 
+   color: #909399; 
+   margin-left: auto; 
+}
 .batch-bar {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-  padding: 6px 10px; background: #f0f9ff; border: 1px solid #b3d8ff; border-radius: 4px;
+  display: flex;
+  align-items: center; 
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 10px; 
+  background: #f0f9ff; 
+  border: 1px solid #b3d8ff; 
+  border-radius: 4px;
 }
-.batch-label { font-size: 12px; font-weight: 600; color: #409eff; white-space: nowrap; }
-.table-pagination { margin-top: 8px; display: flex; justify-content: center; }
+.batch-label { 
+   font-size: 12px; 
+   font-weight: 600; 
+   color: #409eff; 
+   white-space: nowrap; 
+}
+.table-pagination { 
+   margin-top: 8px; 
+   display: flex; 
+   justify-content: center; 
+}
 </style>

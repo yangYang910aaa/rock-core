@@ -106,18 +106,30 @@
 </template>
 
 <script setup lang="ts">
+// ----
+// 裂缝详情弹窗：逐条列表展示 + 筛选 / 批量编辑 / 范围选择 / 分页 / 定位
+// 通过 defineExpose({ open }) 暴露打开方法，由 ResultsPanel 通过 ref 调用
+// ----
 import { ref, computed, watch, nextTick } from 'vue'
 import { useAnalysisStore, type CrackInfo } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
-const currentUnit = computed(() => imageStore.scaleType === 'macro' ? 'mm' : 'μm')
-const unitScale = computed(() => imageStore.scaleType === 'macro' ? 1 : 1000)
 
+// ----
+// 基础状态
+// ----
 const visible = ref(false)
 const crackTableRef = ref<any>(null)
 
+// 单位换算
+const currentUnit = computed(() => imageStore.scaleType === 'macro' ? 'mm' : 'μm')
+const unitScale = computed(() => imageStore.scaleType === 'macro' ? 1 : 1000)
+
+// ----
+// 对外方法
+// ----
 const open = () => {
   indexSearch.value = ''
   validityFilter.value = ''
@@ -136,10 +148,14 @@ const locateCrack = (row: CrackInfo) => {
   visible.value = false
 }
 
+// ----
+// 筛选状态 + 过滤逻辑
+// ----
 const indexSearch = ref('')
 const validityFilter = ref('')
 const materialFilter = ref('')
 
+// 支持序号 / 有效性 / 充填物三维组合过滤
 const filteredCrackList = computed(() => {
   let list = analysisStore.crackResults.crackList
   if (indexSearch.value) { const n = parseInt(indexSearch.value); if (!isNaN(n)) list = list.filter(c => c.index === n) }
@@ -153,17 +169,26 @@ const filteredCrackList = computed(() => {
   }
   return list
 })
+
+// ----
+// 分页
+// ----
 const crackPage = ref(1)
 const pagedCrackList = computed(() => filteredCrackList.value.slice((crackPage.value - 1) * 100, crackPage.value * 100))
 
+// ----
+// 批量编辑
+// ----
 const crackSelected = ref<any[]>([])
 const batchCrackValidity = ref('')
 const batchCrackMaterial = ref('')
 const crackRangeInput = ref('')
 const onCrackSelectionChange = (rows: any[]) => { crackSelected.value = rows }
+// 选择下拉值后立即应用到所有勾选行，然后复位下拉
 watch(batchCrackValidity, (v) => { if (!v) return; crackSelected.value.forEach((r: any) => r.validity = v === '__reset__' ? '' : v); batchCrackValidity.value = '' })
 watch(batchCrackMaterial, (v) => { if (!v) return; crackSelected.value.forEach((r: any) => r.fillingMaterial = v === '__reset__' ? '' : v); batchCrackMaterial.value = '' })
 const batchResetCrack = () => crackSelected.value.forEach((r: any) => { r.validity = ''; r.fillingMaterial = '' })
+// 解析 "5 8 1-10" 格式，勾选对应序号的表格行
 const applyCrackRange = () => {
   const s = new Set<number>()
   crackRangeInput.value.split(/\s+/).forEach(part => {
@@ -181,20 +206,52 @@ defineExpose({ open })
 
 <style scoped>
 .native-select {
-  width: 100%; height: 28px; padding: 0 6px; font-size: 12px;
-  border: 1px solid #dcdfe6; border-radius: 4px; background: #fff;
-  color: #606266; outline: none; cursor: pointer;
+  width: 100%; 
+  height: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+  border: 1px solid #dcdfe6; 
+  border-radius: 4px; 
+  background: #fff;
+  color: #606266; 
+  outline: none; 
+  cursor: pointer;
 }
-.native-select:focus { border-color: #409eff; }
+.native-select:focus {
+   border-color: #409eff; 
+}
 .hole-filter-bar {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #ebeef5;
+  display: flex;
+  align-items: center; 
+  gap: 10px;
+  margin-bottom: 12px; 
+  padding-bottom: 10px; 
+  border-bottom: 1px solid #ebeef5;
 }
-.filter-count { font-size: 12px; color: #909399; margin-left: auto; }
+.filter-count {
+   font-size: 12px; 
+   color: #909399; 
+   margin-left: auto; 
+}
 .batch-bar {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-  padding: 6px 10px; background: #f0f9ff; border: 1px solid #b3d8ff; border-radius: 4px;
+  display: flex;
+  align-items: center; 
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 10px; 
+  background: #f0f9ff; 
+  border: 1px solid #b3d8ff; 
+  border-radius: 4px;
 }
-.batch-label { font-size: 12px; font-weight: 600; color: #409eff; white-space: nowrap; }
-.table-pagination { margin-top: 8px; display: flex; justify-content: center; }
+.batch-label {
+   font-size: 12px; 
+   font-weight: 600; 
+   color: #409eff; 
+   white-space: nowrap; 
+}
+.table-pagination {
+   margin-top: 8px; 
+   display: flex; 
+   justify-content: center; 
+}
 </style>
