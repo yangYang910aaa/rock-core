@@ -312,6 +312,15 @@ export const useAnalysisStore=defineStore('analysis',()=>{
       locatedCrackInfo.value = null
       locatedCrackIndex.value = null
     }
+
+    // 画布点击选中孔洞（弹出属性编辑卡片）
+    const selectedHoleIndex = ref<number | null>(null)
+    const selectHole = (index: number) => {
+      selectedHoleIndex.value = index
+    }
+    const clearHoleSelection = () => {
+      selectedHoleIndex.value = null
+    }
     
     const resetAll=()=>{
         currentMode.value='hole'
@@ -328,6 +337,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         clearHoveredCrack()
         clearLocatedHole()
         clearLocatedCrack()
+        clearHoleSelection()
     }
 
     // ----
@@ -597,6 +607,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     clearLocatedHole,
     setLocatedCrack,
     clearLocatedCrack,
+    selectedHoleIndex,
+    selectHole,
+    clearHoleSelection,
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,

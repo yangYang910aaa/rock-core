@@ -50,7 +50,57 @@
                 >取消定位</el-button>
               </div>
             </Transition>
-            
+
+            <!-- 孔洞点击选择 → 属性编辑卡片 -->
+            <div
+              v-if="selectedHole"
+              class="hole-edit-card"
+              :style="{ left: holeCardPos.x + 'px', top: holeCardPos.y + 'px' }"
+              @click.stop
+            >
+              <div class="card-header">
+                <span>孔洞 #{{ selectedHole.index }}</span>
+                <span class="card-close" @click="analysisStore.clearHoleSelection()">×</span>
+              </div>
+              <div class="card-body">
+                <div class="card-row">
+                  <span class="card-label">直径:</span>
+                  <span>{{ (selectedHole.diameter * unitScale).toFixed(3) }} {{ currentUnit }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">面积:</span>
+                  <span>{{ (selectedHole.area * unitScale * unitScale).toFixed(4) }} {{ currentUnit }}²</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">分类:</span>
+                  <el-tag :type="categoryTagType(selectedHole.category)" size="small">{{ categoryLabel(selectedHole.category) }}</el-tag>
+                </div>
+                <div class="card-row card-select">
+                  <span class="card-label">有效性:</span>
+                  <select v-model="selectedHole.validity" class="native-select">
+                    <option value="">-</option>
+                    <option value="effective">有效（未充填）</option>
+                    <option value="semiEffective">较有效（半充填）</option>
+                    <option value="ineffective">无效（全充填）</option>
+                  </select>
+                </div>
+                <div class="card-row card-select">
+                  <span class="card-label">充填物:</span>
+                  <select v-model="selectedHole.fillingMaterial" class="native-select">
+                    <option value="">-</option>
+                    <option value="mud">泥质</option>
+                    <option value="calcite">方解石</option>
+                    <option value="dolomite">白云石</option>
+                    <option value="asphalt">沥青</option>
+                    <option value="gypsum">石膏</option>
+                    <option value="pyrite">黄铁矿</option>
+                    <option value="kaolinite">高岭石</option>
+                    <option value="quartz">石英</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <!-- 三层 Canvas 容器 -->
             <div class="canvas-wrapper" ref="containerRef">
                 <!-- 底层 Canvas：显示图片 -->
@@ -73,7 +123,6 @@
                     ref="targetMaskCanvasRef"
                     class="mask-canvas target-mask"
                     v-show="analysisStore.showMaskOverlay"
-                    @click.stop="handleCanvasClick"
                 />
             </div>
 
@@ -140,6 +189,22 @@ const isLocated = computed(() => !!(analysisStore.locatedHoleInfo || analysisSto
 const clearLocated = () => {
   analysisStore.clearLocatedHole()
   analysisStore.clearLocatedCrack()
+}
+
+// 孔洞点击选择卡片：当前选中的孔洞数据
+const selectedHole = computed(() => {
+  const idx = analysisStore.selectedHoleIndex
+  if (idx === null) return null
+  return analysisStore.holeResults.holeList[idx - 1] ?? null
+})
+// 分类标签映射（与 ResultsPanel 保持一致）
+const categoryLabel = (cat: string) => {
+  const map: Record<string, string> = { large: '大洞', medium: '中洞', small: '小洞', pinhole: '针孔' }
+  return map[cat] || cat
+}
+const categoryTagType = (cat: string) => {
+  const map: Record<string, string> = { large: 'danger', medium: 'warning', small: 'success', pinhole: 'info' }
+  return map[cat] || ''
 }
 
 const tooltipTitle=computed(()=>{
@@ -216,6 +281,26 @@ const handleMouseDown = (e: MouseEvent) => {
   if (isCalibrating.value) {
     handleCalibrateClick(canvasX, canvasY)
     return
+  }
+
+  // 孔洞模式：点击蒙版选中孔洞，弹出属性编辑卡片
+  if (analysisStore.currentMode === 'hole' && analysisStore.holeResults.holeList.length > 0
+    && analysisStore.binaryMaskMat && !analysisStore.binaryMaskMat.empty()) {
+    const imageCoords = canvasToImageCoords(canvasX, canvasY)
+    if (!isNaN(imageCoords.x) && !isNaN(imageCoords.y)) {
+      const info = detectHoveredHole(analysisStore.binaryMaskMat, imageCoords.x, imageCoords.y, analysisRegion.value, imageStore.pixelToMm)
+      if (info) {
+        analysisStore.selectHole(info.index)
+        holeCardPos.value = { x: e.clientX + 12, y: e.clientY - 12 }
+        analysisStore.clearLocatedHole()
+        analysisStore.clearLocatedCrack()
+        return
+      }
+    }
+    // 点击非蒙版区域：清除选中
+    analysisStore.clearHoleSelection()
+    analysisStore.clearLocatedHole()
+    analysisStore.clearLocatedCrack()
   }
 
   // 局部选框模式
@@ -391,14 +476,8 @@ watch(() => analysisStore.locatedCrackInfo, (info) => {
 })
 
 // 点击蒙版空白处取消定位
-const handleCanvasClick = (e: MouseEvent) => {
-  if (analysisStore.locatedHoleInfo) {
-    analysisStore.clearLocatedHole()
-  }
-  if (analysisStore.locatedCrackInfo) {
-    analysisStore.clearLocatedCrack()
-  }
-}
+// 画布点击选择孔洞
+const holeCardPos = ref({ x: 0, y: 0 })
 </script>
 
 <style scoped>
@@ -481,6 +560,70 @@ const handleCanvasClick = (e: MouseEvent) => {
   margin-top: 8px;
   width: 100%;
   font-size: 12px;
+}
+
+/* 孔洞点击选择 → 属性编辑卡片 */
+.hole-edit-card {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #409eff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding: 0;
+  z-index: 1001;
+  min-width: 200px;
+  pointer-events: auto;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #409eff;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 7px 7px 0 0;
+}
+.card-close {
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.8;
+}
+.card-close:hover { opacity: 1; }
+.card-body {
+  padding: 8px 12px;
+}
+.card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #303133;
+}
+.card-select {
+  margin-bottom: 8px;
+}
+.card-label {
+  color: #606266;
+  min-width: 40px;
+  font-weight: 500;
+}
+.card-body .native-select {
+  flex: 1;
+  height: 26px;
+  padding: 0 4px;
+  font-size: 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+  color: #606266;
+  outline: none;
+}
+.card-body .native-select:focus {
+  border-color: #409eff;
 }
 
 .tooltip-enter-from,
