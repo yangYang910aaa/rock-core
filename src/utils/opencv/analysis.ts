@@ -173,16 +173,44 @@ export const sizeSegmentation = (
     coarseDiff.delete()
     fineDiff.delete()
 
-    // 6. 形态学优化：去除噪点，连接颗粒轮廓
-    const kernelClose = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(4, 4))
-    cv.morphologyEx(textureMask, finalMask, cv.MORPH_CLOSE, kernelClose)
+    // 6. 形态学优化：先去噪，再闭合连接同一颗粒内的碎片
+    const kernelClean = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2, 2))
+    cv.morphologyEx(textureMask, textureMask, cv.MORPH_OPEN, kernelClean)
+    kernelClean.delete()
+    const kernelClose = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3))
+    cv.morphologyEx(textureMask, textureMask, cv.MORPH_CLOSE, kernelClose)
     kernelClose.delete()
 
-    const kernelOpen = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2, 2))
-    cv.morphologyEx(finalMask, finalMask, cv.MORPH_OPEN, kernelOpen)
-    kernelOpen.delete()
+    // 7. 距离变换分离粘连颗粒：距离 > 阈值的内部区域作为"核心区"，从原始掩码中挖去，自然切断粘连桥
+    const dist = new cv.Mat()
+    cv.distanceTransform(textureMask, dist, cv.DIST_L2, 3)
+    const kernels = new cv.Mat()
+    cv.threshold(dist, kernels, 3, 255, cv.THRESH_BINARY) // 离边缘 ≥3px 的区域
+    kernels.convertTo(kernels, cv.CV_8U)
+    dist.delete()
+    // 从原始掩码中扣除核心区，仅保留边缘带；粘连桥会在这一步被切断
+    cv.subtract(textureMask, kernels, finalMask)
+    kernels.delete()
+    // 轻微闭合连接受切割影响的同一颗粒碎片
+    const kernelRepair = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2, 2))
+    cv.morphologyEx(finalMask, finalMask, cv.MORPH_CLOSE, kernelRepair)
+    kernelRepair.delete()
 
-    // 7. 提取颗粒轮廓
+    // 8. 排除孔洞区域：灰度图暗区 → 膨胀 → 反转 → 盖掉孔洞内部的颗粒轮廓
+    const holeMask = new cv.Mat()
+    const lower = new cv.Mat(1, 1, cv.CV_8UC1, new cv.Scalar(0))
+    const upper = new cv.Mat(1, 1, cv.CV_8UC1, new cv.Scalar(80))
+    cv.inRange(gray, lower, upper, holeMask)
+    lower.delete()
+    upper.delete()
+    const kernelHole = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5))
+    cv.dilate(holeMask, holeMask, kernelHole)
+    kernelHole.delete()
+    cv.bitwise_not(holeMask, holeMask)
+    cv.bitwise_and(finalMask, holeMask, finalMask)
+    holeMask.delete()
+
+    // 9. 提取颗粒轮廓
     cv.findContours(finalMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
     return { mask: finalMask,rockMask:rockMask.clone(), contours, hierarchy }
