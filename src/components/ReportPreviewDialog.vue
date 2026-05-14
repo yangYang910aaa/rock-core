@@ -66,18 +66,18 @@ const onFormatChange = () => {
 }
 
 const generatePreview = () => {
-  const { coreBasicInfo, currentMode, regionMode, holeResults, crackResults, sizeResults } = analysisStore
+  const { coreBasicInfo, currentMode, regionMode, holeResults, crackResults, particleResults } = analysisStore
   const { scaleType } = imageStore
 
   let results
   if (currentMode === 'hole') results = holeResults
   else if (currentMode === 'crack') results = crackResults
-  else results = sizeResults
+  else results = particleResults
 
   let threshold
   if (currentMode === 'hole') threshold = analysisStore.holeThreshold
   else if (currentMode === 'crack') threshold = analysisStore.crackThreshold
-  else threshold = analysisStore.sizeThreshold
+  else threshold = analysisStore.particleThreshold
 
   const basicInfo = {
     wellNo: coreBasicInfo.wellNo || '未填写',

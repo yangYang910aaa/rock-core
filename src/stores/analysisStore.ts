@@ -39,7 +39,7 @@ export interface CrackThreshold{
 }
 
 // 粒度分析阈值
-export interface SizeThreshold{
+export interface ParticleThreshold{
     rockBrightnessThreshold:number
     coarseSensitivity:number
     fineSensitivity:number
@@ -107,7 +107,7 @@ export interface ParticleInfo{
 }
 
 // 粒度分析结果
-export interface SizeResults{
+export interface ParticleResults{
     totalParticleCount:number
     avgParticleSize:number
     coarseParticleRatio:number
@@ -170,7 +170,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
    // ----
     const holeThreshold=ref<HoleThreshold>({minThreshold:0,maxThreshold:128})
     const crackThreshold=ref<CrackThreshold>({minWidth:0.1,maxWidth:10.0,minLength:1,cannyLow:50,cannyHigh:150})
-    const sizeThreshold=ref<SizeThreshold>({rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50})
+    const particleThreshold=ref<ParticleThreshold>({rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50})
 
    // ----
    // 颜色匹配状态（替代手动阈值，点击图片取色）
@@ -189,7 +189,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
    // ----
     const holeResults=ref<HoleResults>({totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]})
     const crackResults=ref<CrackResults>({totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0,crackList:[]})
-    const sizeResults=ref<SizeResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0,particleList:[]})
+    const particleResults=ref<ParticleResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0,particleList:[]})
 
    // ----
    // 鼠标悬停状态
@@ -235,12 +235,12 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const resetResults=()=>{
         holeResults.value={totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]}
         crackResults.value={totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0,crackList:[]}
-        sizeResults.value={totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0,particleList:[]}
+        particleResults.value={totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0,particleList:[]}
     }
     const resetThresholds=()=>{
         holeThreshold.value={minThreshold:0,maxThreshold:128}
         crackThreshold.value={minWidth:0.1,maxWidth:10.0,minLength:1,cannyLow:50,cannyHigh:150}
-        sizeThreshold.value={rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50}
+        particleThreshold.value={rockBrightnessThreshold:80,coarseSensitivity:50,fineSensitivity:50}
         colorMatchEnabled.value=false
         isPickingColor.value=false
         pickedColor.value=null
@@ -624,11 +624,11 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     // 阈值
     holeThreshold,
     crackThreshold,
-    sizeThreshold,
+    particleThreshold,
     // 结果
     holeResults,
     crackResults,
-    sizeResults,
+    particleResults,
     // 悬停状态
     hoveredHoleIndex,
     hoveredHoleInfo,

@@ -12,12 +12,12 @@ import type {
   AnalysisRegion,
   HoleThreshold,
   CrackThreshold,
-  SizeThreshold,
+  ParticleThreshold,
   HoleResults,
   HoleInfo,
   CrackResults,
   CrackInfo,
-  SizeResults,
+  ParticleResults,
   ParticleInfo,
 } from '@/stores/analysisStore'
 import {
@@ -25,7 +25,7 @@ import {
   holeSegmentation,
   colorHoleSegmentation,
   crackSegmentation,
-  sizeSegmentation,
+  particleSegmentation,
   maskToVisual
 } from '@/utils/opencv'
 
@@ -40,7 +40,7 @@ import {
 export const previewAnalysisMask = async (
   mode: AnalysisMode,
   imageDataUrl: string,
-  threshold: HoleThreshold | CrackThreshold | SizeThreshold,
+  threshold: HoleThreshold | CrackThreshold | ParticleThreshold,
   region: AnalysisRegion,
   targetMaskMat: Ref<cv.Mat | null>
 ) => {
@@ -71,8 +71,8 @@ export const previewAnalysisMask = async (
         roiBinaryMask = crackSegmentation(src, threshold as CrackThreshold, region)
         break
       case 'size':
-        const { mask: sizeMask, rockMask, contours, hierarchy } = sizeSegmentation(src, threshold as SizeThreshold, region)
-        roiBinaryMask = sizeMask
+        const { mask: particleMask, rockMask, contours, hierarchy } = particleSegmentation(src, threshold as ParticleThreshold, region)
+        roiBinaryMask = particleMask
         tempContours = contours
         tempHierarchy = hierarchy
         break
@@ -154,17 +154,17 @@ export const previewAnalysisMask = async (
 export const executeFullAnalysis = async (
   mode: AnalysisMode,
   imageDataUrl: string,
-  threshold: HoleThreshold | CrackThreshold | SizeThreshold,
+  threshold: HoleThreshold | CrackThreshold | ParticleThreshold,
   region: AnalysisRegion,
   pixelToMm: number = 0.1
-): Promise<HoleResults | CrackResults | SizeResults | null> => {
+): Promise<HoleResults | CrackResults | ParticleResults | null> => {
   try {
     ElMessage.info('开始分析，请稍候...')
     const { src, width, height } = await loadImageToMat(imageDataUrl)
     // 保存原图全图尺寸到Store，后续可视化蒙版生成需要
     const analysisStore = useAnalysisStore()
     analysisStore.sourceImageSize = { width, height }
-    let results: HoleResults | CrackResults | SizeResults | null = null
+    let results: HoleResults | CrackResults | ParticleResults | null = null
     let finalBinaryMask: cv.Mat | null = null
 
     switch (mode) {
@@ -357,7 +357,7 @@ export const executeFullAnalysis = async (
 
       case 'size': {
         // 粒度分析结果计算
-        const { mask: binaryMask, rockMask, contours, hierarchy } = sizeSegmentation(src, threshold as SizeThreshold, region)
+        const { mask: binaryMask, rockMask, contours, hierarchy } = particleSegmentation(src, threshold as ParticleThreshold, region)
         finalBinaryMask = binaryMask.clone() // 保存用于悬停检测
         // 统计参数初始化
         let totalParticleCount = 0 // 总颗粒区域数
@@ -444,7 +444,7 @@ export const executeFullAnalysis = async (
           particleUniformity: particleUniformity,
           rockParticleRate: rockParticleRate,
           particleList
-        } as SizeResults
+        } as ParticleResults
 
         // 释放内存
         binaryMask.delete()

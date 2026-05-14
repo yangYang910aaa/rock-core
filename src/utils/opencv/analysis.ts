@@ -4,7 +4,7 @@ import type {
   AnalysisRegion,
   HoleThreshold,
   CrackThreshold,
-  SizeThreshold
+  ParticleThreshold
 } from '@/stores/analysisStore'
 import { cropAnalysisRegion } from './core'
 
@@ -117,9 +117,9 @@ export const crackSegmentation = (
  * 完整岩心粒度分析
  * 核心：所有参数可通过界面滑块实时调整，和孔洞/裂缝分析交互一致
  */
-export const sizeSegmentation = (
+export const particleSegmentation = (
   src: cv.Mat,
-  threshold: SizeThreshold,
+  threshold: ParticleThreshold,
   region: AnalysisRegion
 ): { mask: cv.Mat,rockMask: cv.Mat, contours: cv.MatVector, hierarchy: cv.Mat } => {
   const roiSrc = cropAnalysisRegion(src, region)

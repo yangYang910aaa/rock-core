@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { DocumentAdd, Refresh, ArrowDown } from '@element-plus/icons-vue'
-import { useAnalysisStore, type CrackResults, type HoleResults, type SizeResults } from '@/stores/analysisStore'
+import { useAnalysisStore, type CrackResults, type HoleResults, type ParticleResults } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
@@ -58,7 +58,7 @@ const {
   currentMode,
   holeThreshold,
   crackThreshold,
-  sizeThreshold,
+  particleThreshold,
 } = storeToRefs(analysisStore)
 
 const activeNames = ref<string[]>(['2'])
@@ -86,7 +86,7 @@ const debouncePreview = () => {
     switch (currentMode.value) {
       case 'hole': threshold = holeThreshold.value; break
       case 'crack': threshold = crackThreshold.value; break
-      case 'size': threshold = sizeThreshold.value; break
+      case 'size': threshold = particleThreshold.value; break
     }
     await previewAnalysisMask(
       currentMode.value,
@@ -124,7 +124,7 @@ const handleStartAnalysis = async () => {
     switch (currentMode.value) {
       case 'hole': threshold = holeThreshold.value; break
       case 'crack': threshold = crackThreshold.value; break
-      case 'size': threshold = sizeThreshold.value; break
+      case 'size': threshold = particleThreshold.value; break
     }
     const results = await executeFullAnalysis(
       currentMode.value,
@@ -137,7 +137,7 @@ const handleStartAnalysis = async () => {
       switch (currentMode.value) {
         case 'hole': analysisStore.holeResults = results as HoleResults; break
         case 'crack': analysisStore.crackResults = results as CrackResults; break
-        case 'size': analysisStore.sizeResults = results as SizeResults; break
+        case 'size': analysisStore.particleResults = results as ParticleResults; break
       }
     }
   } catch (error) {
@@ -160,9 +160,9 @@ watch(() => [crackThreshold.value.cannyLow, crackThreshold.value.cannyHigh], () 
 })
 
 watch(() => [
-  sizeThreshold.value.rockBrightnessThreshold,
-  sizeThreshold.value.coarseSensitivity,
-  sizeThreshold.value.fineSensitivity,
+  particleThreshold.value.rockBrightnessThreshold,
+  particleThreshold.value.coarseSensitivity,
+  particleThreshold.value.fineSensitivity,
 ], () => {
   if (!skipWatch() && currentMode.value === 'size') debouncePreview()
 })

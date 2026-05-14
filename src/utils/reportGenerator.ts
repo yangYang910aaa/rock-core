@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import {saveAs} from 'file-saver';
-import type {HoleResults,CrackResults,SizeResults,CoreBasicInfo,HoleThreshold,CrackThreshold,SizeThreshold} from '@/stores/analysisStore';
+import type {HoleResults,CrackResults,ParticleResults,CoreBasicInfo,HoleThreshold,CrackThreshold,ParticleThreshold} from '@/stores/analysisStore';
 /**
  * 分析参数
  */
@@ -10,7 +10,7 @@ interface AnalysisParams{
     mode:'hole'|'crack'|'size'
     regionMode:'full'|'rect'
     scaleType:'macro'|'micro'
-    threshold:HoleThreshold | CrackThreshold | SizeThreshold
+    threshold:HoleThreshold | CrackThreshold | ParticleThreshold
 }
 /**
  * 生成Excel报告
@@ -18,7 +18,7 @@ interface AnalysisParams{
 export const exportToExcel = async (
   basicInfo: CoreBasicInfo,
   params: AnalysisParams,
-  results: HoleResults | CrackResults | SizeResults
+  results: HoleResults | CrackResults | ParticleResults
 ) => {
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('岩心分析报告')
@@ -174,7 +174,7 @@ export const exportToExcel = async (
       ['面孔率', `${res.faceRate.toFixed(2)} %`]
     ]
   } else {
-    const res = results as SizeResults
+    const res = results as ParticleResults
     resultRows = [
       ['颗粒总数', res.totalParticleCount],
       ['平均粒径', `${res.avgParticleSize.toFixed(4)} ${unit}`],
@@ -435,7 +435,7 @@ const generateCrackListHtml = (crackList: any[], unit: string) => {
 export const generateReportHtml = (
   basicInfo: CoreBasicInfo,
   params: AnalysisParams,
-  results: HoleResults | CrackResults | SizeResults
+  results: HoleResults | CrackResults | ParticleResults
 ): string => {
   let modeName = ''
   let modeText = ''
@@ -479,7 +479,7 @@ export const generateReportHtml = (
       <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>
       `
   } else {
-    const res = results as SizeResults
+    const res = results as ParticleResults
     resultHtml = `
       <tr><td>颗粒总数</td><td>${res.totalParticleCount}</td></tr>
       <tr><td>平均粒径</td><td>${res.avgParticleSize.toFixed(4)} ${unit}</td></tr>
@@ -569,7 +569,7 @@ export const generateReportHtml = (
 export const generateExcelPreviewHtml = (
   basicInfo: CoreBasicInfo,
   params: AnalysisParams,
-  results: HoleResults | CrackResults | SizeResults
+  results: HoleResults | CrackResults | ParticleResults
 ): string => {
   let modeName = ''
   let modeText = ''
@@ -604,7 +604,7 @@ export const generateExcelPreviewHtml = (
       <tr><td>面孔率</td><td>${res.faceRate.toFixed(2)} %</td></tr>`
   } else {
     modeName = '粒度'; modeText = '粒度分析'
-    const res = results as SizeResults
+    const res = results as ParticleResults
     resultRows = `
       <tr><td>颗粒总数</td><td>${res.totalParticleCount}</td></tr>
       <tr><td>平均粒径</td><td>${res.avgParticleSize.toFixed(4)} ${unit}</td></tr>
@@ -718,7 +718,7 @@ export const generateExcelPreviewHtml = (
 export const exportToPDF = async (
   basicInfo: CoreBasicInfo,
   params: AnalysisParams,
-  results: HoleResults | CrackResults | SizeResults
+  results: HoleResults | CrackResults | ParticleResults
 ) => {
   try {
     let modeName = ''

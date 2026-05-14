@@ -9,13 +9,13 @@ export const useReportExport = () => {
   const imageStore = useImageStore()
 
   const handleExportReport = async (format: 'excel' | 'pdf') => {
-    const { coreBasicInfo, currentMode, regionMode, holeResults, crackResults, sizeResults } = analysisStore
+    const { coreBasicInfo, currentMode, regionMode, holeResults, crackResults, particleResults } = analysisStore
     const { scaleType } = imageStore
 
     const hasResults =
       (currentMode === 'hole' && holeResults.totalCount > 0) ||
       (currentMode === 'crack' && crackResults.totalCount > 0) ||
-      (currentMode === 'size' && sizeResults.totalParticleCount > 0)
+      (currentMode === 'size' && particleResults.totalParticleCount > 0)
 
     if (!hasResults) {
       ElMessage.warning('请先进行分析,生成结果后再导出报告')
@@ -58,7 +58,7 @@ export const useReportExport = () => {
       scaleType,
       threshold: currentMode === 'hole' ? analysisStore.holeThreshold
         : currentMode === 'crack' ? analysisStore.crackThreshold
-        : analysisStore.sizeThreshold,
+        : analysisStore.particleThreshold,
     }
 
     let results: any
@@ -67,7 +67,7 @@ export const useReportExport = () => {
     } else if (currentMode === 'crack') {
       results = crackResults
     } else {
-      results = sizeResults
+      results = particleResults
     }
 
     try {

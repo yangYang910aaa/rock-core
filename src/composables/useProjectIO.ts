@@ -52,7 +52,7 @@ export const useProjectIO = () => {
         analysisRegion: { ...analysisStore.analysisRegion },
         holeThreshold: { ...analysisStore.holeThreshold },
         crackThreshold: { ...analysisStore.crackThreshold },
-        sizeThreshold: { ...analysisStore.sizeThreshold },
+        particleThreshold: { ...analysisStore.particleThreshold },
         colorMatchEnabled: analysisStore.colorMatchEnabled,
         pickedColor: analysisStore.pickedColor ? { ...analysisStore.pickedColor } : null,
         colorMatchTolerance: analysisStore.colorMatchTolerance,
@@ -61,7 +61,7 @@ export const useProjectIO = () => {
         pickedColorImageY: analysisStore.pickedColorImageY,
         holeResults: JSON.parse(JSON.stringify(analysisStore.holeResults)),
         crackResults: JSON.parse(JSON.stringify(analysisStore.crackResults)),
-        sizeResults: JSON.parse(JSON.stringify(analysisStore.sizeResults)),
+        particleResults: JSON.parse(JSON.stringify(analysisStore.particleResults)),
         coreBasicInfo: { ...analysisStore.coreBasicInfo },
       },
     }
@@ -103,7 +103,7 @@ export const useProjectIO = () => {
       analysisStore.setAnalysisRegion(a.analysisRegion)
       analysisStore.holeThreshold = a.holeThreshold
       analysisStore.crackThreshold = a.crackThreshold
-      analysisStore.sizeThreshold = a.sizeThreshold
+      analysisStore.particleThreshold = a.particleThreshold
       analysisStore.colorMatchEnabled = a.colorMatchEnabled
       analysisStore.pickedColor = a.pickedColor
       analysisStore.colorMatchTolerance = a.colorMatchTolerance
@@ -112,7 +112,7 @@ export const useProjectIO = () => {
       analysisStore.pickedColorImageY = a.pickedColorImageY ?? 0
       analysisStore.holeResults = a.holeResults
       analysisStore.crackResults = a.crackResults
-      analysisStore.sizeResults = a.sizeResults
+      analysisStore.particleResults = a.particleResults
       analysisStore.setCoreBasicInfo(a.coreBasicInfo)
 
       ElMessage.success('项目加载成功')
@@ -124,13 +124,13 @@ export const useProjectIO = () => {
       const hasResults =
         a.holeResults?.holeList?.length > 0 ||
         a.crackResults?.totalCount > 0 ||
-        a.sizeResults?.totalParticleCount > 0
+        a.particleResults?.totalParticleCount > 0
       if (hasResults) {
         const threshold = a.currentMode === 'hole'
           ? a.holeThreshold
           : a.currentMode === 'crack'
           ? a.crackThreshold
-          : a.sizeThreshold
+          : a.particleThreshold
         await previewAnalysisMask(
           a.currentMode,
           project.image.processedImageDataUrl,

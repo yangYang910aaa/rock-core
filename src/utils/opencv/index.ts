@@ -27,7 +27,7 @@ export {
   holeSegmentation,
   colorHoleSegmentation,
   crackSegmentation,
-  sizeSegmentation
+  particleSegmentation
 } from './analysis'
 
 // 形态学操作工具

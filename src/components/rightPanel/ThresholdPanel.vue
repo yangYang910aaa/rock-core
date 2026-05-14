@@ -98,13 +98,13 @@
     <template v-else-if="analysisStore.currentMode === 'size'">
       <el-form label-width="110px" size="default" class="panel-form">
         <el-form-item label="岩石亮度阈值">
-          <el-slider v-model="analysisStore.sizeThreshold.rockBrightnessThreshold" :min="0" :max="255" class="panel-slider" />
+          <el-slider v-model="analysisStore.particleThreshold.rockBrightnessThreshold" :min="0" :max="255" class="panel-slider" />
         </el-form-item>
         <el-form-item label="粗颗粒灵敏度">
-          <el-slider v-model="analysisStore.sizeThreshold.coarseSensitivity" :min="0" :max="100" class="panel-slider" />
+          <el-slider v-model="analysisStore.particleThreshold.coarseSensitivity" :min="0" :max="100" class="panel-slider" />
         </el-form-item>
         <el-form-item label="细颗粒灵敏度">
-          <el-slider v-model="analysisStore.sizeThreshold.fineSensitivity" :min="0" :max="100" class="panel-slider" />
+          <el-slider v-model="analysisStore.particleThreshold.fineSensitivity" :min="0" :max="100" class="panel-slider" />
         </el-form-item>
       </el-form>
     </template>

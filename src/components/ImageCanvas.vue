@@ -428,7 +428,7 @@ const handleMouseDown = (e: MouseEvent) => {
   }
 
   // 粒度模式：点击蒙版选中颗粒
-  if (analysisStore.currentMode === 'size' && analysisStore.sizeResults.particleList.length > 0
+  if (analysisStore.currentMode === 'size' && analysisStore.particleResults.particleList.length > 0
     && analysisStore.binaryMaskMat && !analysisStore.binaryMaskMat.empty()) {
     const imageCoords = canvasToImageCoords(canvasX, canvasY)
     if (!isNaN(imageCoords.x) && !isNaN(imageCoords.y)) {
@@ -656,7 +656,7 @@ const selectedCrack = computed(() => {
 const selectedParticle = computed(() => {
   const idx = analysisStore.selectedParticleIndex
   if (idx === null) return null
-  return analysisStore.sizeResults.particleList[idx - 1] ?? null
+  return analysisStore.particleResults.particleList[idx - 1] ?? null
 })
 </script>
 
