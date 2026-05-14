@@ -11,7 +11,7 @@
         <el-descriptions-item label="面孔率">{{ analysisStore.holeResults.faceRate }} %</el-descriptions-item>
       </el-descriptions>
       <!-- 孔洞分类统计 -->
-      <el-descriptions :column="1" size="small" border class="result-table" style="margin-top:12px;">
+      <el-descriptions :column="1" border class="result-table" style="margin-top:12px;">
         <template #title>孔洞分类统计</template>
         <el-descriptions-item label="大洞(>10mm)">{{ analysisStore.holeResults.largeCount }} 个</el-descriptions-item>
         <el-descriptions-item label="中洞(5~10mm)">{{ analysisStore.holeResults.mediumCount }} 个</el-descriptions-item>
@@ -81,7 +81,7 @@
   <el-dialog
     v-model="holeDetailVisible"
     title="孔洞详情"
-    width="780px"
+    width="900px"
     top="3vh"
   >
     <!-- 筛选栏：序号搜索 + 三个维度自由组合，实时过滤孔洞列表 -->
@@ -141,7 +141,7 @@
       <input v-model="holeRangeInput" class="native-select" style="width:100px;" placeholder="5 8 1-10" @keyup.enter="applyHoleRange" />
       <el-button @click="applyHoleRange">选择范围</el-button>
     </div>
-    <el-table ref="holeTableRef" :data="pagedHoleList" size="small" max-height="480" stripe @selection-change="onHoleSelectionChange">
+    <el-table ref="holeTableRef" :data="pagedHoleList" max-height="580" stripe @selection-change="onHoleSelectionChange">
       <el-table-column type="selection" width="40" />
       <el-table-column prop="index" label="#" width="50" />
       <el-table-column prop="diameter" label="直径" width="100">
@@ -152,7 +152,7 @@
       </el-table-column>
       <el-table-column prop="category" label="分类" width="90">
         <template #default="{ row }">
-          <el-tag :type="categoryTagType(row.category)" size="small">{{ categoryLabel(row.category) }}</el-tag>
+          <el-tag :type="categoryTagType(row.category)" >{{ categoryLabel(row.category) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="有效性" width="170">
@@ -203,7 +203,7 @@
   <el-dialog
     v-model="crackDetailVisible"
     title="裂缝详情"
-    width="780px"
+    width="900px"
     top="3vh"
   >
     <div class="hole-filter-bar">
@@ -250,11 +250,11 @@
         <option value="kaolinite">高岭石</option>
         <option value="quartz">石英</option>
       </select>
-      <el-button size="small" type="danger" plain @click="batchResetCrack">全部重置</el-button>
+      <el-button type="danger" plain @click="batchResetCrack">全部重置</el-button>
       <input v-model="crackRangeInput" class="native-select" style="width:100px;" placeholder="5 8 1-10" @keyup.enter="applyCrackRange" />
-      <el-button size="small" @click="applyCrackRange">选择范围</el-button>
+      <el-button @click="applyCrackRange">选择范围</el-button>
     </div>
-    <el-table ref="crackTableRef" :data="pagedCrackList" size="small" max-height="480" stripe @selection-change="onCrackSelectionChange">
+    <el-table ref="crackTableRef" :data="pagedCrackList" max-height="580" stripe @selection-change="onCrackSelectionChange">
       <el-table-column type="selection" width="40" />
       <el-table-column prop="index" label="#" width="50" />
       <el-table-column prop="length" label="长度" width="100">
@@ -293,7 +293,7 @@
       </el-table-column>
       <el-table-column label="定位" width="60" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="primary" link @click="locateCrack(row)">定位</el-button>
+          <el-button type="primary" link @click="locateCrack(row)">定位</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -314,7 +314,7 @@
   <el-dialog
     v-model="sizeDetailVisible"
     title="颗粒详情"
-    width="780px"
+    width="900px"
     top="3vh"
   >
     <div class="hole-filter-bar">
@@ -361,11 +361,11 @@
         <option value="kaolinite">高岭石</option>
         <option value="quartz">石英</option>
       </select>
-      <el-button size="small" type="danger" plain @click="batchResetParticle">全部重置</el-button>
+      <el-button type="danger" plain @click="batchResetParticle">全部重置</el-button>
       <input v-model="particleRangeInput" class="native-select" style="width:100px;" placeholder="5 8 1-10" @keyup.enter="applyParticleRange" />
-      <el-button size="small" @click="applyParticleRange">选择范围</el-button>
+      <el-button @click="applyParticleRange">选择范围</el-button>
     </div>
-    <el-table ref="particleTableRef" :data="pagedParticleList" size="small" max-height="480" stripe @selection-change="onParticleSelectionChange">
+    <el-table ref="particleTableRef" :data="pagedParticleList" max-height="580" stripe @selection-change="onParticleSelectionChange">
       <el-table-column type="selection" width="40" />
       <el-table-column prop="index" label="#" width="50" />
       <el-table-column prop="diameter" label="粒径" width="100">
@@ -401,7 +401,7 @@
       </el-table-column>
       <el-table-column label="定位" width="60" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="primary" link @click="locateParticle(row)">定位</el-button>
+          <el-button type="primary" link @click="locateParticle(row)">定位</el-button>
         </template>
       </el-table-column>
     </el-table>
