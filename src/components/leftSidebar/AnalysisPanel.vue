@@ -148,6 +148,7 @@ const { binaryMaskMat, analysisRegion } = storeToRefs(analysisStore)
 
 // 监听分析模式变化：v-model 直接更新 store，这里只做结果清空
 watch(() => analysisStore.currentMode, () => {
+  if (analysisStore.isLoadingProject) return
   analysisStore.resetResults()
 })
 

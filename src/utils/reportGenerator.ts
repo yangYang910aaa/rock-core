@@ -1,16 +1,16 @@
 import ExcelJS from 'exceljs';
 import {saveAs} from 'file-saver';
-import type {HoleResults,CrackResults,SizeResults,CoreBasicInfo} from '@/stores/analysisStore';
+import type {HoleResults,CrackResults,SizeResults,CoreBasicInfo,HoleThreshold,CrackThreshold,SizeThreshold} from '@/stores/analysisStore';
 /**
  * 分析参数
  */
 interface AnalysisParams{
-    fillingMaterial: any;
-    validity: any;
+    fillingMaterial?: string;
+    validity?: string;
     mode:'hole'|'crack'|'size'
     regionMode:'full'|'rect'
     scaleType:'macro'|'micro'
-    threshold:any
+    threshold:HoleThreshold | CrackThreshold | SizeThreshold
 }
 /**
  * 生成Excel报告

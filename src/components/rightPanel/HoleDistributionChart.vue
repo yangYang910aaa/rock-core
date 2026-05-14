@@ -1,6 +1,6 @@
 <template>
   <div v-if="holeList.length > 0" class="distribution-chart" :style="{ height: height + 'px' }">
-    <Bar :data="chartData" :options="chartOptions" />
+    <Bar :data="chartData as any" :options="chartOptions as any" />
   </div>
 </template>
 
