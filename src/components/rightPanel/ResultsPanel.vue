@@ -76,7 +76,6 @@
     title="孔洞详情"
     width="780px"
     top="3vh"
-    destroy-on-close
   >
     <!-- 筛选栏：序号搜索 + 三个维度自由组合，实时过滤孔洞列表 -->
     <div class="hole-filter-bar">
@@ -109,7 +108,34 @@
       </select>
       <span class="filter-count">共 {{ filteredHoleList.length }} / {{ analysisStore.holeResults.holeList.length }} 个</span>
     </div>
-    <el-table :data="filteredHoleList" size="small" max-height="480" stripe>
+    <!-- 批量操作栏，选中行后出现 -->
+    <div v-if="holeSelected.length" class="batch-bar">
+      <span class="batch-label">已选 {{ holeSelected.length }} 个</span>
+      <select v-model="batchHoleValidity" class="native-select" style="width:140px;">
+        <option value="">- 批量有效性 -</option>
+        <option value="__reset__">重置有效性</option>
+        <option value="effective">有效（未充填）</option>
+        <option value="semiEffective">较有效（半充填）</option>
+        <option value="ineffective">无效（全充填）</option>
+      </select>
+      <select v-model="batchHoleMaterial" class="native-select" style="width:110px;">
+        <option value="">- 批量充填物 -</option>
+        <option value="__reset__">重置充填物</option>
+        <option value="mud">泥质</option>
+        <option value="calcite">方解石</option>
+        <option value="dolomite">白云石</option>
+        <option value="asphalt">沥青</option>
+        <option value="gypsum">石膏</option>
+        <option value="pyrite">黄铁矿</option>
+        <option value="kaolinite">高岭石</option>
+        <option value="quartz">石英</option>
+      </select>
+      <el-button size="small" type="danger" plain @click="batchResetHole">全部重置</el-button>
+      <input v-model="holeRangeInput" class="native-select" style="width:100px;" placeholder="5 8 1-10" @keyup.enter="applyHoleRange" />
+      <el-button size="small" @click="applyHoleRange">选择范围</el-button>
+    </div>
+    <el-table ref="holeTableRef" :data="filteredHoleList" size="small" max-height="480" stripe @selection-change="onHoleSelectionChange">
+      <el-table-column type="selection" width="40" />
       <el-table-column prop="index" label="#" width="50" />
       <el-table-column prop="diameter" label="直径" width="100">
         <template #default="{ row }">{{ (row.diameter * unitScale).toFixed(3) }} {{ currentUnit }}</template>
@@ -164,7 +190,6 @@
     title="裂缝详情"
     width="780px"
     top="3vh"
-    destroy-on-close
   >
     <div class="hole-filter-bar">
       <input v-model="crackIndexSearch" class="native-select" style="width:80px;" placeholder="#序号" />
@@ -189,7 +214,33 @@
       </select>
       <span class="filter-count">共 {{ filteredCrackList.length }} / {{ analysisStore.crackResults.crackList.length }} 个</span>
     </div>
-    <el-table :data="filteredCrackList" size="small" max-height="480" stripe>
+    <div v-if="crackSelected.length" class="batch-bar">
+      <span class="batch-label">已选 {{ crackSelected.length }} 个</span>
+      <select v-model="batchCrackValidity" class="native-select" style="width:140px;">
+        <option value="">- 批量有效性 -</option>
+        <option value="__reset__">- 重置有效性 -</option>
+        <option value="effective">有效（未充填）</option>
+        <option value="semiEffective">较有效（半充填）</option>
+        <option value="ineffective">无效（全充填）</option>
+      </select>
+      <select v-model="batchCrackMaterial" class="native-select" style="width:110px;">
+        <option value="">- 批量充填物 -</option>
+        <option value="__reset__">- 重置充填物 -</option>
+        <option value="mud">泥质</option>
+        <option value="calcite">方解石</option>
+        <option value="dolomite">白云石</option>
+        <option value="asphalt">沥青</option>
+        <option value="gypsum">石膏</option>
+        <option value="pyrite">黄铁矿</option>
+        <option value="kaolinite">高岭石</option>
+        <option value="quartz">石英</option>
+      </select>
+      <el-button size="small" type="danger" plain @click="batchResetCrack">全部重置</el-button>
+      <input v-model="crackRangeInput" class="native-select" style="width:100px;" placeholder="5 8 1-10" @keyup.enter="applyCrackRange" />
+      <el-button size="small" @click="applyCrackRange">选择范围</el-button>
+    </div>
+    <el-table ref="crackTableRef" :data="filteredCrackList" size="small" max-height="480" stripe @selection-change="onCrackSelectionChange">
+      <el-table-column type="selection" width="40" />
       <el-table-column prop="index" label="#" width="50" />
       <el-table-column prop="length" label="长度" width="100">
         <template #default="{ row }">{{ (row.length * unitScale).toFixed(3) }} {{ currentUnit }}</template>
@@ -238,7 +289,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useAnalysisStore, type HoleInfo, type CrackInfo } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 import HoleDistributionChart from './HoleDistributionChart.vue'
@@ -271,7 +322,12 @@ const openHoleDetail = () => {
   categoryFilter.value = ''
   validityFilter.value = ''
   materialFilter.value = ''
+  holeSelected.value = []
+  batchHoleValidity.value = ''
+  batchHoleMaterial.value = ''
+  holeRangeInput.value = ''
   holeDetailVisible.value = true
+  nextTick(() => holeTableRef.value?.clearSelection())
 }
 // 筛选维度：序号 + 分类 + 有效性 + 充填物，可自由组合
 const indexSearch = ref('')
@@ -316,6 +372,77 @@ const categoryTagType = (cat: string) => {
   return map[cat] || ''
 }
 
+// ---- 批量编辑（孔洞 / 裂缝表格多选）----
+const holeTableRef = ref<any>(null)
+const crackTableRef = ref<any>(null)
+const holeSelected = ref<any[]>([])
+const batchHoleValidity = ref('')
+const batchHoleMaterial = ref('')
+
+const onHoleSelectionChange = (rows: any[]) => { holeSelected.value = rows }
+watch(batchHoleValidity, (v) => {
+  if (!v) return
+  holeSelected.value.forEach(r => r.validity = v === '__reset__' ? '' : v)
+  batchHoleValidity.value = ''
+})
+watch(batchHoleMaterial, (v) => {
+  if (!v) return
+  holeSelected.value.forEach(r => r.fillingMaterial = v === '__reset__' ? '' : v)
+  batchHoleMaterial.value = ''
+})
+const batchResetHole = () => {
+  holeSelected.value.forEach(r => { r.validity = ''; r.fillingMaterial = '' })
+}
+
+// 范围选择：解析 "1-10" / "5,8,12-20" 格式并切换选中行
+const holeRangeInput = ref('')
+const applyHoleRange = () => {
+  const indices = parseRange(holeRangeInput.value)
+  if (!indices.size) return
+  filteredHoleList.value.forEach(row => {
+    holeTableRef.value?.toggleRowSelection(row, indices.has(row.index))
+  })
+}
+const crackRangeInput = ref('')
+const applyCrackRange = () => {
+  const indices = parseRange(crackRangeInput.value)
+  if (!indices.size) return
+  filteredCrackList.value.forEach(row => {
+    crackTableRef.value?.toggleRowSelection(row, indices.has(row.index))
+  })
+}
+const parseRange = (s: string): Set<number> => {
+  const set = new Set<number>()
+  s.split(/\s+/).forEach(part => {
+    if (!part) return
+    const seg = part.split('-')
+    const a = parseInt(seg[0]!)
+    const b = parseInt(seg[1] ?? seg[0]!)
+    if (isNaN(a) || isNaN(b)) return
+    for (let i = Math.min(a, b); i <= Math.max(a, b); i++) set.add(i)
+  })
+  return set
+}
+
+const crackSelected = ref<any[]>([])
+const batchCrackValidity = ref('')
+const batchCrackMaterial = ref('')
+
+const onCrackSelectionChange = (rows: any[]) => { crackSelected.value = rows }
+watch(batchCrackValidity, (v) => {
+  if (!v) return
+  crackSelected.value.forEach(r => r.validity = v === '__reset__' ? '' : v)
+  batchCrackValidity.value = ''
+})
+watch(batchCrackMaterial, (v) => {
+  if (!v) return
+  crackSelected.value.forEach(r => r.fillingMaterial = v === '__reset__' ? '' : v)
+  batchCrackMaterial.value = ''
+})
+const batchResetCrack = () => {
+  crackSelected.value.forEach(r => { r.validity = ''; r.fillingMaterial = '' })
+}
+
 // ---- 裂缝详情弹窗 + 筛选 ----
 const crackDetailVisible = ref(false)
 const crackIndexSearch = ref('')
@@ -326,7 +453,12 @@ const openCrackDetail = () => {
   crackIndexSearch.value = ''
   crackValidityFilter.value = ''
   crackMaterialFilter.value = ''
+  crackSelected.value = []
+  batchCrackValidity.value = ''
+  batchCrackMaterial.value = ''
+  crackRangeInput.value = ''
   crackDetailVisible.value = true
+  nextTick(() => crackTableRef.value?.clearSelection())
 }
 
 const locateCrack = (row: CrackInfo) => {
@@ -406,6 +538,24 @@ const filteredCrackList = computed(() => {
   font-size: 12px;
   color: #909399;
   margin-left: auto;
+}
+
+/* 批量操作栏 */
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: #f0f9ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 4px;
+}
+.batch-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #409eff;
+  white-space: nowrap;
 }
 
 /* 孔洞附属功能按钮组，对齐主操作区风格 */
