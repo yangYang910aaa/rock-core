@@ -95,6 +95,17 @@ export interface CrackResults{
     crackList:CrackInfo[]
 }
 
+// 单个颗粒详情
+export interface ParticleInfo{
+    index:number
+    diameter:number         // 等效粒径 mm
+    area:number             // 面积 mm²
+    centerX:number
+    centerY:number
+    validity:ValidityType
+    fillingMaterial:FillingMaterial
+}
+
 // 粒度分析结果
 export interface SizeResults{
     totalParticleCount:number
@@ -103,6 +114,7 @@ export interface SizeResults{
     fineParticleRatio:number
     particleUniformity:number
     rockParticleRate:number
+    particleList:ParticleInfo[]
 }
 
 // ----
@@ -177,7 +189,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
    // ----
     const holeResults=ref<HoleResults>({totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]})
     const crackResults=ref<CrackResults>({totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0,crackList:[]})
-    const sizeResults=ref<SizeResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0})
+    const sizeResults=ref<SizeResults>({totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0,particleList:[]})
 
    // ----
    // 鼠标悬停状态
@@ -223,7 +235,7 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const resetResults=()=>{
         holeResults.value={totalCount:0,totalArea:0,avgDiameter:0,maxDiameter:0,minDiameter:0,faceRate:0,largeCount:0,mediumCount:0,smallCount:0,pinholeCount:0,holeList:[]}
         crackResults.value={totalCount:0,totalLength:0,avgWidth:0,faceRate:0,lineDensity:0,areaDensity:0,crackList:[]}
-        sizeResults.value={totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0}
+        sizeResults.value={totalParticleCount:0,avgParticleSize:0,coarseParticleRatio:0,fineParticleRatio:0,particleUniformity:0,rockParticleRate:0,particleList:[]}
     }
     const resetThresholds=()=>{
         holeThreshold.value={minThreshold:0,maxThreshold:128}
@@ -330,6 +342,29 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     const clearCrackSelection = () => {
       selectedCrackIndex.value = null
     }
+
+    // 粒度定位/悬停/选中状态
+    const locatedParticleIndex = ref<number | null>(null)
+    const locatedParticleInfo = ref<{
+      index: number; diameter: number; area: number; centerX: number; centerY: number
+    } | null>(null)
+    const setLocatedParticle = (info: { index: number; diameter: number; area: number; centerX: number; centerY: number }) => {
+      locatedParticleInfo.value = info; locatedParticleIndex.value = info.index
+    }
+    const clearLocatedParticle = () => { locatedParticleInfo.value = null; locatedParticleIndex.value = null }
+
+    const hoveredParticleIndex = ref<number | null>(null)
+    const hoveredParticleInfo = ref<{
+      index: number; diameter: number; area: number; centerX: number; centerY: number
+    } | null>(null)
+    const setHoveredParticleInfo = (info: { index: number; diameter: number; area: number; centerX: number; centerY: number } | null) => {
+      hoveredParticleInfo.value = info; hoveredParticleIndex.value = info ? info.index : null
+    }
+    const clearHoveredParticle = () => { hoveredParticleInfo.value = null; hoveredParticleIndex.value = null }
+
+    const selectedParticleIndex = ref<number | null>(null)
+    const selectParticle = (index: number) => { selectedParticleIndex.value = index }
+    const clearParticleSelection = () => { selectedParticleIndex.value = null }
     
     const resetAll=()=>{
         currentMode.value='hole'
@@ -348,6 +383,9 @@ export const useAnalysisStore=defineStore('analysis',()=>{
         clearLocatedCrack()
         clearHoleSelection()
         clearCrackSelection()
+        clearLocatedParticle()
+        clearHoveredParticle()
+        clearParticleSelection()
     }
 
     // ----
@@ -623,6 +661,17 @@ export const useAnalysisStore=defineStore('analysis',()=>{
     selectedCrackIndex,
     selectCrack,
     clearCrackSelection,
+    locatedParticleIndex,
+    locatedParticleInfo,
+    setLocatedParticle,
+    clearLocatedParticle,
+    hoveredParticleIndex,
+    hoveredParticleInfo,
+    setHoveredParticleInfo,
+    clearHoveredParticle,
+    selectedParticleIndex,
+    selectParticle,
+    clearParticleSelection,
     resetAll,
     showMaskOverlay,
     reportPreviewVisible,

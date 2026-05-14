@@ -229,6 +229,32 @@ export const exportToExcel = async (
     })
   }
 
+  // 逐颗粒详情表（仅粒度模式）
+  if (params.mode === 'size' && (results as any).particleList?.length > 0) {
+    currentRow++
+    const plCell = worksheet.getCell(`A${currentRow}`)
+    plCell.value = '颗粒详情'
+    plCell.font = { bold: true, size: 16 }
+    plCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F9FF' } }
+    worksheet.mergeCells(`A${currentRow}:C${currentRow}`)
+    currentRow++
+
+    const headerRow = worksheet.addRow(['序号', '粒径(mm)', '面积(mm²)'])
+    headerRow.eachCell((c) => {
+      c.font = { bold: true }
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } }
+      c.alignment = { horizontal: 'center', vertical: 'middle' }
+    })
+    currentRow++
+    ;(results as any).particleList.forEach((p: any) => {
+      const dataRow = worksheet.addRow([p.index, p.diameter.toFixed(3), p.area.toFixed(4)])
+      dataRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' }
+      dataRow.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' }
+      currentRow++
+    })
+  }
+
   // 逐条裂缝详情表（仅裂缝模式）
   if (params.mode === 'crack' && (results as any).crackList?.length > 0) {
     currentRow++
@@ -348,6 +374,21 @@ const generateHoleListHtml = (holeList: any[], unit: string) => {
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`
+}
+
+/** 生成逐颗粒详情 HTML 表格 */
+const generateParticleListHtml = (particleList: any[], unit: string) => {
+  if (!particleList || particleList.length === 0) return ''
+  let rows = ''
+  particleList.forEach(p => {
+    rows += `<tr>
+      <td>${p.index}</td>
+      <td>${p.diameter.toFixed(3)} ${unit}</td>
+      <td>${p.area.toFixed(4)} ${unit}²</td>
+    </tr>`
+  })
+  return `<h2>颗粒详情</h2>
+  <table><thead><tr><th>#</th><th>粒径</th><th>面积</th></tr></thead><tbody>${rows}</tbody></table>`
 }
 
 /** 生成逐条裂缝详情 HTML 表格 */
@@ -515,6 +556,10 @@ export const generateReportHtml = (
     const crackListHtml = generateCrackListHtml((results as any).crackList, unit)
     reportHtml = reportHtml.replace('</body>', `${crackListHtml}</body>`)
   }
+  if (params.mode === 'size' && (results as any).particleList?.length > 0) {
+    const plHtml = generateParticleListHtml((results as any).particleList, unit)
+    reportHtml = reportHtml.replace('</body>', `${plHtml}</body>`)
+  }
   return reportHtml
 }
 
@@ -661,6 +706,11 @@ export const generateExcelPreviewHtml = (
   if (params.mode === 'crack' && (results as any).crackList?.length > 0) {
     const crackListHtml = generateCrackListHtml((results as any).crackList, unit)
     html = html.replace('</body>', `${crackListHtml}</body>`)
+  }
+  // 追加颗粒详情表（仅粒度模式有数据）
+  if (params.mode === 'size' && (results as any).particleList?.length > 0) {
+    const plHtml = generateParticleListHtml((results as any).particleList, unit)
+    html = html.replace('</body>', `${plHtml}</body>`)
   }
   return html
 }

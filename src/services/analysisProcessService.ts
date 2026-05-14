@@ -18,6 +18,7 @@ import type {
   CrackResults,
   CrackInfo,
   SizeResults,
+  ParticleInfo,
 } from '@/stores/analysisStore'
 import {
   loadImageToMat,
@@ -364,6 +365,7 @@ export const executeFullAnalysis = async (
         const particleDiameters: number[] = [] // 每个颗粒的等效粒径
 
         // 遍历所有颗粒轮廓
+        const particleList: ParticleInfo[] = []
         for (let i = 0; i < contours.size(); i++) {
           const contour = contours.get(i)
           const area = cv.contourArea(contour)
@@ -371,8 +373,27 @@ export const executeFullAnalysis = async (
 
           // 计算等效粒径（圆的直径）
           const diameter = 2 * Math.sqrt(area / Math.PI) * pixelToMm
+          const particleArea = area * pixelToMm * pixelToMm
+
+          // 中心坐标
+          const moments = cv.moments(contour)
+          let cx = 0, cy = 0
+          if (moments.m00 > 0) {
+            cx = Math.round(moments.m10 / moments.m00)
+            cy = Math.round(moments.m01 / moments.m00)
+          }
+
+          particleList.push({
+            index: particleList.length + 1,
+            diameter: Number(diameter.toFixed(4)),
+            area: Number(particleArea.toFixed(4)),
+            centerX: cx,
+            centerY: cy,
+            validity: '',
+            fillingMaterial: '',
+          })
           particleDiameters.push(diameter)
-          totalParticleArea += area * pixelToMm * pixelToMm
+          totalParticleArea += particleArea
           totalParticleCount++
         }
 
@@ -421,7 +442,8 @@ export const executeFullAnalysis = async (
           coarseParticleRatio: coarseParticleRatio,
           fineParticleRatio: fineParticleRatio,
           particleUniformity: particleUniformity,
-          rockParticleRate: rockParticleRate
+          rockParticleRate: rockParticleRate,
+          particleList
         } as SizeResults
 
         // 释放内存

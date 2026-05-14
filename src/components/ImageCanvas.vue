@@ -41,6 +41,16 @@
                       <span class="tooltip-value">{{ (tooltipData as any).width > 0 ? (tooltipData as any).width.toFixed(3) + ' ' + currentUnit : '-' }}</span>
                     </div>
                   </template>
+                  <template v-else-if="analysisStore.currentMode === 'size'">
+                    <div class="tooltip-item">
+                      <span class="tooltip-label">粒径:</span>
+                      <span class="tooltip-value">{{ (tooltipData as any).diameter.toFixed(3) }} {{ currentUnit }}</span>
+                    </div>
+                    <div class="tooltip-item">
+                      <span class="tooltip-label">面积:</span>
+                      <span class="tooltip-value">{{ (tooltipData as any).area.toFixed(4) }} {{ currentUnit }}²</span>
+                    </div>
+                  </template>
                 </div>
                 <el-button
                   v-if="isLocated"
@@ -147,6 +157,52 @@
               </div>
             </div>
 
+            <!-- 粒度点击选择 → 属性编辑卡片 -->
+            <div
+              v-if="selectedParticle"
+              class="hole-edit-card"
+              :style="{ left: particleCardPos.x + 'px', top: particleCardPos.y + 'px' }"
+              @click.stop
+            >
+              <div class="card-header">
+                <span>颗粒 #{{ selectedParticle.index }}</span>
+                <span class="card-close" @click="analysisStore.clearParticleSelection()">×</span>
+              </div>
+              <div class="card-body">
+                <div class="card-row">
+                  <span class="card-label">粒径:</span>
+                  <span>{{ (selectedParticle.diameter * unitScale).toFixed(3) }} {{ currentUnit }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label">面积:</span>
+                  <span>{{ (selectedParticle.area * unitScale * unitScale).toFixed(4) }} {{ currentUnit }}²</span>
+                </div>
+                <div class="card-row card-select">
+                  <span class="card-label">有效性:</span>
+                  <select v-model="selectedParticle.validity" class="native-select">
+                    <option value="">-</option>
+                    <option value="effective">有效（未充填）</option>
+                    <option value="semiEffective">较有效（半充填）</option>
+                    <option value="ineffective">无效（全充填）</option>
+                  </select>
+                </div>
+                <div class="card-row card-select">
+                  <span class="card-label">充填物:</span>
+                  <select v-model="selectedParticle.fillingMaterial" class="native-select">
+                    <option value="">-</option>
+                    <option value="mud">泥质</option>
+                    <option value="calcite">方解石</option>
+                    <option value="dolomite">白云石</option>
+                    <option value="asphalt">沥青</option>
+                    <option value="gypsum">石膏</option>
+                    <option value="pyrite">黄铁矿</option>
+                    <option value="kaolinite">高岭石</option>
+                    <option value="quartz">石英</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <!-- 三层 Canvas 容器 -->
             <div class="canvas-wrapper" ref="containerRef">
                 <!-- 底层 Canvas：显示图片 -->
@@ -226,15 +282,16 @@ const currentUnit = computed(() => {
 const unitScale = computed(() => {
   return scaleType.value === 'macro' ? 1 : 1000
 })
-// Tooltip 数据源：定位态优先（孔洞或裂缝），否则取悬停态
+// Tooltip 数据源：定位态优先，否则取悬停态
 const tooltipData = computed(() => {
-  return analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo
-    || analysisStore.hoveredHoleInfo || analysisStore.hoveredCrackInfo
+  return analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo || analysisStore.locatedParticleInfo
+    || analysisStore.hoveredHoleInfo || analysisStore.hoveredCrackInfo || analysisStore.hoveredParticleInfo
 })
-const isLocated = computed(() => !!(analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo))
+const isLocated = computed(() => !!(analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo || analysisStore.locatedParticleInfo))
 const clearLocated = () => {
   analysisStore.clearLocatedHole()
   analysisStore.clearLocatedCrack()
+  analysisStore.clearLocatedParticle()
 }
 
 // 孔洞点击选择卡片：当前选中的孔洞数据
@@ -370,6 +427,23 @@ const handleMouseDown = (e: MouseEvent) => {
     analysisStore.clearLocatedCrack()
   }
 
+  // 粒度模式：点击蒙版选中颗粒
+  if (analysisStore.currentMode === 'size' && analysisStore.sizeResults.particleList.length > 0
+    && analysisStore.binaryMaskMat && !analysisStore.binaryMaskMat.empty()) {
+    const imageCoords = canvasToImageCoords(canvasX, canvasY)
+    if (!isNaN(imageCoords.x) && !isNaN(imageCoords.y)) {
+      const info = detectHoveredHole(analysisStore.binaryMaskMat, imageCoords.x, imageCoords.y, analysisRegion.value, imageStore.pixelToMm)
+      if (info) {
+        analysisStore.selectParticle(info.index)
+        particleCardPos.value = { x: e.clientX + 12, y: e.clientY - 12 }
+        analysisStore.clearLocatedParticle()
+        return
+      }
+    }
+    analysisStore.clearParticleSelection()
+    analysisStore.clearLocatedParticle()
+  }
+
   // 局部选框模式
   handleRegionMouseDown(e, imageCanvasRef.value!)
 }
@@ -407,9 +481,10 @@ const handleMouseUp = () => {
 }
 
 const handleMouseLeave = () => {
-  if (analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo) return  // 定位态下不清理
+  if (analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo || analysisStore.locatedParticleInfo) return
   analysisStore.clearHoveredHole()
   analysisStore.clearHoveredCrack()
+  analysisStore.clearHoveredParticle()
   analysisStore.currentHoverColor = null
   tooltipVisible.value = false
 }
@@ -469,19 +544,30 @@ const detectHoveredHoleOnCanvas = (canvasX: number, canvasY: number, rect: DOMRe
     return
   }
 
-  // 孔洞/粒度模式：原有逻辑
+  // 孔洞/粒度模式：共用 blob 检测
   const holeInfo = detectHoveredHole(binaryMask, imageCoords.x, imageCoords.y, analysisRegion.value, imageStore.pixelToMm)
   if (holeInfo) {
-    analysisStore.setHoveredHoleInfo({
-      ...holeInfo,
-      diameter: holeInfo.diameter * unitScale.value,
-      area: holeInfo.area * unitScale.value * unitScale.value
-    })
+    if (analysisStore.currentMode === 'size') {
+      analysisStore.setHoveredParticleInfo({
+        index: holeInfo.index,
+        diameter: holeInfo.diameter * unitScale.value,
+        area: holeInfo.area * unitScale.value * unitScale.value,
+        centerX: holeInfo.centerX,
+        centerY: holeInfo.centerY,
+      })
+    } else {
+      analysisStore.setHoveredHoleInfo({
+        ...holeInfo,
+        diameter: holeInfo.diameter * unitScale.value,
+        area: holeInfo.area * unitScale.value * unitScale.value
+      })
+    }
     tooltipX.value = rect.left + canvasX + 15
     tooltipY.value = rect.top + canvasY - 10
     tooltipVisible.value = true
   } else {
     analysisStore.clearHoveredHole()
+    analysisStore.clearHoveredParticle()
     tooltipVisible.value = false
   }
 }
@@ -536,20 +622,41 @@ watch(() => analysisStore.locatedCrackInfo, (info) => {
     tooltipY.value = rect.top + canvasPos.y
     tooltipVisible.value = true
   } else {
-    if (!analysisStore.hoveredHoleInfo && !analysisStore.locatedHoleInfo) {
+    if (!analysisStore.hoveredHoleInfo && !analysisStore.locatedHoleInfo && !analysisStore.locatedParticleInfo) {
+      tooltipVisible.value = false
+    }
+  }
+})
+watch(() => analysisStore.locatedParticleInfo, (info) => {
+  if (info && info.centerX && info.centerY) {
+    const el = imageCanvasRef.value
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const canvasPos = imageToCanvasCoords(info.centerX, info.centerY)
+    tooltipX.value = rect.left + canvasPos.x
+    tooltipY.value = rect.top + canvasPos.y
+    tooltipVisible.value = true
+  } else {
+    if (!analysisStore.hoveredHoleInfo && !analysisStore.locatedHoleInfo && !analysisStore.locatedCrackInfo) {
       tooltipVisible.value = false
     }
   }
 })
 
 // 点击蒙版空白处取消定位
-// 画布点击选择孔洞 / 裂缝
+// 画布点击选择孔洞 / 裂缝 / 颗粒
 const holeCardPos = ref({ x: 0, y: 0 })
 const crackCardPos = ref({ x: 0, y: 0 })
+const particleCardPos = ref({ x: 0, y: 0 })
 const selectedCrack = computed(() => {
   const idx = analysisStore.selectedCrackIndex
   if (idx === null) return null
   return analysisStore.crackResults.crackList[idx - 1] ?? null
+})
+const selectedParticle = computed(() => {
+  const idx = analysisStore.selectedParticleIndex
+  if (idx === null) return null
+  return analysisStore.sizeResults.particleList[idx - 1] ?? null
 })
 </script>
 

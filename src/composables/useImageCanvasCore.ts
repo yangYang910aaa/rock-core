@@ -16,7 +16,7 @@ export const useImageCanvasCore = () => {
   const imageStore = useImageStore()
   const analysisStore = useAnalysisStore()
   const { processedImageDataUrl } = storeToRefs(imageStore)
-  const { targetMaskMat, hoveredHoleIndex, locatedHoleIndex, hoveredCrackIndex, locatedCrackIndex, binaryMaskMat, analysisRegion, sourceImageSize } = storeToRefs(analysisStore)
+  const { targetMaskMat, hoveredHoleIndex, locatedHoleIndex, hoveredCrackIndex, locatedCrackIndex, hoveredParticleIndex, locatedParticleIndex, binaryMaskMat, analysisRegion, sourceImageSize } = storeToRefs(analysisStore)
 
   // ==========================================
   // 2. DOM 引用
@@ -141,13 +141,15 @@ export const useImageCanvasCore = () => {
     
     const { drawX, drawY, drawWidth, drawHeight } = imageDrawParams.value
 
-    // 孔洞模式：轮廓高亮（maskToVisualWithHighlight 自带红色叠加层，不需基础蒙版）
-    const holeHighlightIndex = locatedHoleIndex.value ?? hoveredHoleIndex.value
-    if (analysisStore.currentMode !== 'crack' && holeHighlightIndex !== null && holeHighlightIndex > 0
+    // 孔洞/粒度模式：轮廓高亮
+    const blobHighlightIndex = analysisStore.currentMode === 'size'
+      ? (locatedParticleIndex.value ?? hoveredParticleIndex.value)
+      : (locatedHoleIndex.value ?? hoveredHoleIndex.value)
+    if (analysisStore.currentMode !== 'crack' && blobHighlightIndex !== null && blobHighlightIndex > 0
       && binaryMaskMat.value && !binaryMaskMat.value.empty()) {
       const visualMask = maskToVisualWithHighlight(
         binaryMaskMat.value,
-        holeHighlightIndex,
+        blobHighlightIndex,
         sourceImageSize.value,
         analysisRegion.value
       )
@@ -253,6 +255,8 @@ export const useImageCanvasCore = () => {
   watch(locatedHoleIndex, () => { drawTargetMask() })
   watch(hoveredCrackIndex, () => { drawTargetMask() })
   watch(locatedCrackIndex, () => { drawTargetMask() })
+  watch(hoveredParticleIndex, () => { drawTargetMask() })
+  watch(locatedParticleIndex, () => { drawTargetMask() })
 
   // ==========================================
   // 8. 生命周期
