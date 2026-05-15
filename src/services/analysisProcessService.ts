@@ -3,6 +3,7 @@ import cv from '@techstark/opencv-js'
 import { ElMessage } from 'element-plus'
 import { markRaw, type Ref } from 'vue'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { useMaskStore } from '@/stores/maskStore'
 // 从 analysisStore 引入正确的辅助函数
 import { copyMat, deleteMatSafe } from '@/utils/opencv/core'
 
@@ -48,8 +49,9 @@ export const previewAnalysisMask = async (
     // 1. 加载原图
     const { src, width, height } = await loadImageToMat(imageDataUrl)
     const analysisStore = useAnalysisStore()
+    const maskStore = useMaskStore()
     // 保存原图全图尺寸到Store，后续所有操作都用这个尺寸
-    analysisStore.sourceImageSize = { width, height }
+    maskStore.sourceImageSize = { width, height }
 
     let roiBinaryMask: cv.Mat | null = null
     let tempContours: cv.MatVector | null = null
@@ -102,7 +104,7 @@ export const previewAnalysisMask = async (
 
     // 先拿到旧的蒙版
     const oldVisualMask = targetMaskMat.value 
-    const oldBinaryMask = analysisStore.binaryMaskMat
+    const oldBinaryMask = maskStore.binaryMaskMat
 
     // 复制新蒙版，避免和临时变量共享引用
     const newVisualMask = markRaw(visualMask)
@@ -110,14 +112,14 @@ export const previewAnalysisMask = async (
 
     // 安全替换 Store 里的蒙版
     targetMaskMat.value = newVisualMask
-    analysisStore.binaryMaskMat = newBinaryMask
+    maskStore.binaryMaskMat = newBinaryMask
 
     // 安全释放旧蒙版
     deleteMatSafe(oldVisualMask)
     deleteMatSafe(oldBinaryMask)
 
     // 4. 初始化蒙版历史记录
-    analysisStore.initMaskHistory()
+    maskStore.initMaskHistory()
 
     // 5. 释放临时内存
     src.delete()
@@ -163,7 +165,8 @@ export const executeFullAnalysis = async (
     const { src, width, height } = await loadImageToMat(imageDataUrl)
     // 保存原图全图尺寸到Store，后续可视化蒙版生成需要
     const analysisStore = useAnalysisStore()
-    analysisStore.sourceImageSize = { width, height }
+    const maskStore = useMaskStore()
+    maskStore.sourceImageSize = { width, height }
     let results: HoleResults | CrackResults | ParticleResults | null = null
     let finalBinaryMask: cv.Mat | null = null
 
@@ -472,8 +475,8 @@ export const executeFullAnalysis = async (
         finalBinaryMask.copyTo(fullBinaryMask)
       }
 
-      const oldBinaryMask = analysisStore.binaryMaskMat
-      analysisStore.binaryMaskMat = markRaw(copyMat(fullBinaryMask))
+      const oldBinaryMask = maskStore.binaryMaskMat
+      maskStore.binaryMaskMat = markRaw(copyMat(fullBinaryMask))
       deleteMatSafe(oldBinaryMask)
 
       // 可视化 RGBA 蒙版：maskToVisual 要求传入 ROI 尺寸的 binaryMask
@@ -481,12 +484,12 @@ export const executeFullAnalysis = async (
         ? finalBinaryMask // 已经是 ROI 尺寸，直接传入
         : fullBinaryMask
       const newVisualMask = maskToVisual(visualSource, { width, height }, region)
-      const oldVisualMask = analysisStore.targetMaskMat
-      analysisStore.targetMaskMat = markRaw(newVisualMask)
+      const oldVisualMask = maskStore.targetMaskMat
+      maskStore.targetMaskMat = markRaw(newVisualMask)
       deleteMatSafe(oldVisualMask)
 
       // 初始化蒙版历史，保证后续的撤销/反选等操作以当前分析结果为基准
-      analysisStore.initMaskHistory()
+      maskStore.initMaskHistory()
 
       fullBinaryMask.delete()
     }

@@ -112,9 +112,11 @@
 // ----
 import { ref, computed, watch, nextTick } from 'vue'
 import { useAnalysisStore, type CrackInfo } from '@/stores/analysisStore'
+import { useInteractionStore } from '@/stores/interactionStore'
 import { useImageStore } from '@/stores/imageStore'
 
 const analysisStore = useAnalysisStore()
+  const interactionStore = useInteractionStore()
 const imageStore = useImageStore()
 
 // ----
@@ -144,7 +146,7 @@ const open = () => {
 }
 
 const locateCrack = (row: CrackInfo) => {
-  analysisStore.setLocatedCrack({ index: row.index, length: row.length, width: row.width, centerX: row.centerX, centerY: row.centerY })
+  interactionStore.setLocatedCrack({ index: row.index, length: row.length, width: row.width, centerX: row.centerX, centerY: row.centerY })
   visible.value = false
 }
 

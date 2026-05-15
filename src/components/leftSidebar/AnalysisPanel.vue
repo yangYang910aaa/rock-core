@@ -133,6 +133,7 @@
 <script setup lang="ts">
 import { markRaw, ref, watch } from 'vue'
 import { useAnalysisStore, type AnalysisRegion, type RegionMode } from '@/stores/analysisStore'
+import { useMaskStore } from '@/stores/maskStore'
 import { useImageStore } from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
@@ -141,10 +142,12 @@ import cv from '@techstark/opencv-js'
 import { copyMat, deleteMatSafe, maskToVisual } from '@/utils/opencv/core'
 
 const analysisStore = useAnalysisStore()
+const maskStore = useMaskStore()
 const imageStore = useImageStore()
 
 // 解构Store状态
-const { binaryMaskMat, analysisRegion } = storeToRefs(analysisStore)
+const { analysisRegion } = storeToRefs(analysisStore)
+const { binaryMaskMat } = storeToRefs(maskStore)
 
 // 监听分析模式变化：v-model 直接更新 store，这里只做结果清空
 watch(() => analysisStore.currentMode, () => {
@@ -180,7 +183,7 @@ const checkMaskExists = (): boolean => {
 const handleInverseMask = () => {
   if (!checkMaskExists()) return
   const newBinaryMask = inverseMask(binaryMaskMat.value!, undefined, analysisRegion.value)
-  analysisStore.updateMask(newBinaryMask)
+  maskStore.updateMask(newBinaryMask)
   ElMessage.success('已反选')
 }
 
@@ -188,14 +191,14 @@ const handleInverseMask = () => {
  * 撤销
  */
 const handleUndo = () => {
-  analysisStore.undoMask()
+  maskStore.undoMask()
 }
 
 /**
  * 还原
  */
 const handleRedo = () => {
-  analysisStore.redoMask()
+  maskStore.redoMask()
 }
 
 /**
@@ -203,7 +206,7 @@ const handleRedo = () => {
  */
 const handleResetInitial = () => {
   if (!checkMaskExists()) return
-  analysisStore.resetMaskToInitial()
+  maskStore.resetMaskToInitial()
 }
 
 // ==========================================
@@ -271,11 +274,11 @@ const handleDenoisePreview = () => {
       denoisePixelSize.value
     )
     // 更新可视化蒙版
-    const { width, height } = analysisStore.sourceImageSize
+    const { width, height } = maskStore.sourceImageSize
     const newVisualMask = maskToVisual(previewMask, { width, height })
     // 替换可视化蒙版
-    const oldVisualMask = analysisStore.targetMaskMat
-    analysisStore.targetMaskMat = markRaw(newVisualMask)
+    const oldVisualMask = maskStore.targetMaskMat
+    maskStore.targetMaskMat = markRaw(newVisualMask)
     deleteMatSafe(oldVisualMask)
     deleteMatSafe(previewMask)
     ElMessage.success('预览完成')
@@ -304,7 +307,7 @@ const handleDenoiseConfirm = () => {
       denoisePixelSize.value
     )
     // 更新蒙版并保存历史
-    analysisStore.updateMask(newBinaryMask)
+    maskStore.updateMask(newBinaryMask)
     denoiseDialogVisible.value = false
     ElMessage.success('区域去噪完成')
   } catch (error) {
@@ -316,7 +319,7 @@ const handleDenoiseConfirm = () => {
 watch(denoiseDialogVisible, (newVal) => {
   // 如果是关闭弹窗且有备份蒙版,则恢复
   if (!newVal && backupBinaryMask && !backupBinaryMask.empty()) {
-    analysisStore.updateMask(copyMat(backupBinaryMask), false) // 恢复蒙版
+    maskStore.updateMask(copyMat(backupBinaryMask), false) // 恢复蒙版
     ElMessage.info('已取消去噪操作,恢复原蒙版')
   }
 })
@@ -340,7 +343,7 @@ const executeMaskOperation = (
     // 执行操作
     const newBinaryMask = operationFn(binaryMaskMat.value, kernelSize, analysisRegion.value)
     // 更新蒙版并保存历史
-    analysisStore.updateMask(newBinaryMask)
+    maskStore.updateMask(newBinaryMask)
     ElMessage.success(`${operationName}完成`)
   } catch (error) {
     ElMessage.error(`${operationName}失败，请重试`)

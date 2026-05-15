@@ -4,6 +4,8 @@
 // ----
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { useMaskStore } from '@/stores/maskStore'
+import { useInteractionStore } from '@/stores/interactionStore'
 import { useImageStore } from '@/stores/imageStore'
 import { detectHoveredHole, detectHoveredCrack } from '@/utils/opencv/core'
 
@@ -15,6 +17,8 @@ export const useCanvasInteraction = (
   currentUnitVal: ComputedRef<string>,
 ) => {
   const analysisStore = useAnalysisStore()
+  const maskStore = useMaskStore()
+  const interactionStore = useInteractionStore()
   const imageStore = useImageStore()
 
   // ----
@@ -34,14 +38,14 @@ export const useCanvasInteraction = (
 
   // Tooltip 数据源：定位态优先，否则取悬停态
   const tooltipData = computed(() => {
-    return analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo || analysisStore.locatedParticleInfo
-      || analysisStore.hoveredHoleInfo || analysisStore.hoveredCrackInfo || analysisStore.hoveredParticleInfo
+    return interactionStore.locatedHoleInfo || interactionStore.locatedCrackInfo || interactionStore.locatedParticleInfo
+      || interactionStore.hoveredHoleInfo || interactionStore.hoveredCrackInfo || interactionStore.hoveredParticleInfo
   })
-  const isLocated = computed(() => !!(analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo || analysisStore.locatedParticleInfo))
+  const isLocated = computed(() => !!(interactionStore.locatedHoleInfo || interactionStore.locatedCrackInfo || interactionStore.locatedParticleInfo))
   const clearLocated = () => {
-    analysisStore.clearLocatedHole()
-    analysisStore.clearLocatedCrack()
-    analysisStore.clearLocatedParticle()
+    interactionStore.clearLocatedHole()
+    interactionStore.clearLocatedCrack()
+    interactionStore.clearLocatedParticle()
   }
 
   // ----
@@ -52,17 +56,17 @@ export const useCanvasInteraction = (
   const particleCardPos = ref({ x: 0, y: 0 })
 
   const selectedHole = computed(() => {
-    const idx = analysisStore.selectedHoleIndex
+    const idx = interactionStore.selectedHoleIndex
     if (idx === null) return null
     return analysisStore.holeResults.holeList[idx - 1] ?? null
   })
   const selectedCrack = computed(() => {
-    const idx = analysisStore.selectedCrackIndex
+    const idx = interactionStore.selectedCrackIndex
     if (idx === null) return null
     return analysisStore.crackResults.crackList[idx - 1] ?? null
   })
   const selectedParticle = computed(() => {
-    const idx = analysisStore.selectedParticleIndex
+    const idx = interactionStore.selectedParticleIndex
     if (idx === null) return null
     return analysisStore.particleResults.particleList[idx - 1] ?? null
   })
@@ -85,7 +89,7 @@ export const useCanvasInteraction = (
   // ----
   const trySelectItemAt = (canvasX: number, canvasY: number, clientX: number, clientY: number): boolean => {
     const mode = analysisStore.currentMode
-    const binaryMask = analysisStore.binaryMaskMat
+    const binaryMask = maskStore.binaryMaskMat
     if (!binaryMask || binaryMask.empty()) return false
 
     const imageCoords = canvasToImageCoords(canvasX, canvasY)
@@ -95,15 +99,15 @@ export const useCanvasInteraction = (
     if (mode === 'hole' && analysisStore.holeResults.holeList.length > 0) {
       const info = detectHoveredHole(binaryMask, imageCoords.x, imageCoords.y, analysisStore.analysisRegion, imageStore.pixelToMm)
       if (info) {
-        analysisStore.selectHole(info.index)
+        interactionStore.selectHole(info.index)
         holeCardPos.value = { x: clientX + 12, y: clientY - 12 }
-        analysisStore.clearLocatedHole()
-        analysisStore.clearLocatedCrack()
+        interactionStore.clearLocatedHole()
+        interactionStore.clearLocatedCrack()
         return true
       }
-      analysisStore.clearHoleSelection()
-      analysisStore.clearLocatedHole()
-      analysisStore.clearLocatedCrack()
+      interactionStore.clearHoleSelection()
+      interactionStore.clearLocatedHole()
+      interactionStore.clearLocatedCrack()
       return false
     }
 
@@ -114,15 +118,15 @@ export const useCanvasInteraction = (
         analysisStore.crackThreshold.minWidth,
         analysisStore.crackThreshold.maxWidth)
       if (info && info.index > 0) {
-        analysisStore.selectCrack(info.index)
+        interactionStore.selectCrack(info.index)
         crackCardPos.value = { x: clientX + 12, y: clientY - 12 }
-        analysisStore.clearLocatedHole()
-        analysisStore.clearLocatedCrack()
+        interactionStore.clearLocatedHole()
+        interactionStore.clearLocatedCrack()
         return true
       }
-      analysisStore.clearCrackSelection()
-      analysisStore.clearLocatedHole()
-      analysisStore.clearLocatedCrack()
+      interactionStore.clearCrackSelection()
+      interactionStore.clearLocatedHole()
+      interactionStore.clearLocatedCrack()
       return false
     }
 
@@ -130,13 +134,13 @@ export const useCanvasInteraction = (
     if (mode === 'size' && analysisStore.particleResults.particleList.length > 0) {
       const info = detectHoveredHole(binaryMask, imageCoords.x, imageCoords.y, analysisStore.analysisRegion, imageStore.pixelToMm)
       if (info) {
-        analysisStore.selectParticle(info.index)
+        interactionStore.selectParticle(info.index)
         particleCardPos.value = { x: clientX + 12, y: clientY - 12 }
-        analysisStore.clearLocatedParticle()
+        interactionStore.clearLocatedParticle()
         return true
       }
-      analysisStore.clearParticleSelection()
-      analysisStore.clearLocatedParticle()
+      interactionStore.clearParticleSelection()
+      interactionStore.clearLocatedParticle()
       return false
     }
 
@@ -148,24 +152,24 @@ export const useCanvasInteraction = (
   // ----
   const detectHoveredItemAt = (canvasX: number, canvasY: number, canvasRect: DOMRect) => {
     // 定位态下不更新悬停（避免 Tooltip 跳动）
-    if (analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo || analysisStore.locatedParticleInfo) {
-      if (analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo) return
+    if (interactionStore.locatedHoleInfo || interactionStore.locatedCrackInfo || interactionStore.locatedParticleInfo) {
+      if (interactionStore.locatedHoleInfo || interactionStore.locatedCrackInfo) return
     }
 
-    const binaryMask = analysisStore.binaryMaskMat
+    const binaryMask = maskStore.binaryMaskMat
     if (!binaryMask || binaryMask.empty()) {
-      analysisStore.clearHoveredHole()
-      analysisStore.clearHoveredCrack()
-      analysisStore.clearHoveredParticle()
+      interactionStore.clearHoveredHole()
+      interactionStore.clearHoveredCrack()
+      interactionStore.clearHoveredParticle()
       tooltipVisible.value = false
       return
     }
 
     const imageCoords = canvasToImageCoords(canvasX, canvasY)
     if (isNaN(imageCoords.x) || isNaN(imageCoords.y) || imageCoords.x < 0 || imageCoords.y < 0) {
-      analysisStore.clearHoveredHole()
-      analysisStore.clearHoveredCrack()
-      analysisStore.clearHoveredParticle()
+      interactionStore.clearHoveredHole()
+      interactionStore.clearHoveredCrack()
+      interactionStore.clearHoveredParticle()
       tooltipVisible.value = false
       return
     }
@@ -179,7 +183,7 @@ export const useCanvasInteraction = (
           analysisStore.crackThreshold.minWidth,
           analysisStore.crackThreshold.maxWidth)
         if (crackInfo) {
-          analysisStore.setHoveredCrackInfo({
+          interactionStore.setHoveredCrackInfo({
             index: crackInfo.index,
             length: crackInfo.length * unitScale.value,
             width: crackInfo.width * unitScale.value,
@@ -187,7 +191,7 @@ export const useCanvasInteraction = (
             centerY: crackInfo.centerY,
           })
         } else {
-          analysisStore.setHoveredCrackInfo({
+          interactionStore.setHoveredCrackInfo({
             index: -1, length: 0, width: 0,
             centerX: Math.round(imageCoords.x),
             centerY: Math.round(imageCoords.y),
@@ -197,7 +201,7 @@ export const useCanvasInteraction = (
         tooltipY.value = canvasRect.top + canvasY - 10
         tooltipVisible.value = true
       } else {
-        analysisStore.clearHoveredCrack()
+        interactionStore.clearHoveredCrack()
         tooltipVisible.value = false
       }
       return
@@ -207,7 +211,7 @@ export const useCanvasInteraction = (
     const holeInfo = detectHoveredHole(binaryMask, imageCoords.x, imageCoords.y, analysisStore.analysisRegion, imageStore.pixelToMm)
     if (holeInfo) {
       if (analysisStore.currentMode === 'size') {
-        analysisStore.setHoveredParticleInfo({
+        interactionStore.setHoveredParticleInfo({
           index: holeInfo.index,
           diameter: holeInfo.diameter * unitScale.value,
           area: holeInfo.area * unitScale.value * unitScale.value,
@@ -215,7 +219,7 @@ export const useCanvasInteraction = (
           centerY: holeInfo.centerY,
         })
       } else {
-        analysisStore.setHoveredHoleInfo({
+        interactionStore.setHoveredHoleInfo({
           ...holeInfo,
           diameter: holeInfo.diameter * unitScale.value,
           area: holeInfo.area * unitScale.value * unitScale.value,
@@ -225,18 +229,18 @@ export const useCanvasInteraction = (
       tooltipY.value = canvasRect.top + canvasY - 10
       tooltipVisible.value = true
     } else {
-      analysisStore.clearHoveredHole()
-      analysisStore.clearHoveredParticle()
+      interactionStore.clearHoveredHole()
+      interactionStore.clearHoveredParticle()
       tooltipVisible.value = false
     }
   }
 
   // 鼠标离开时清除悬停（定位态保持）
   const clearHoverIfNotLocated = () => {
-    if (analysisStore.locatedHoleInfo || analysisStore.locatedCrackInfo || analysisStore.locatedParticleInfo) return
-    analysisStore.clearHoveredHole()
-    analysisStore.clearHoveredCrack()
-    analysisStore.clearHoveredParticle()
+    if (interactionStore.locatedHoleInfo || interactionStore.locatedCrackInfo || interactionStore.locatedParticleInfo) return
+    interactionStore.clearHoveredHole()
+    interactionStore.clearHoveredCrack()
+    interactionStore.clearHoveredParticle()
     analysisStore.currentHoverColor = null
     tooltipVisible.value = false
   }
@@ -245,7 +249,7 @@ export const useCanvasInteraction = (
   // 定位态 watcher：定位时计算 Tooltip 的屏幕坐标
   // ----
   const setupLocateWatchers = () => {
-    watch(() => analysisStore.locatedHoleInfo, (info) => {
+    watch(() => interactionStore.locatedHoleInfo, (info) => {
       if (info && info.centerX && info.centerY) {
         const el = imageCanvasRef.value
         if (!el) return
@@ -254,11 +258,11 @@ export const useCanvasInteraction = (
         tooltipX.value = rect.left + canvasPos.x
         tooltipY.value = rect.top + canvasPos.y
         tooltipVisible.value = true
-      } else if (!analysisStore.hoveredHoleInfo && !analysisStore.locatedCrackInfo) {
+      } else if (!interactionStore.hoveredHoleInfo && !interactionStore.locatedCrackInfo) {
         tooltipVisible.value = false
       }
     })
-    watch(() => analysisStore.locatedCrackInfo, (info) => {
+    watch(() => interactionStore.locatedCrackInfo, (info) => {
       if (info && info.centerX && info.centerY) {
         const el = imageCanvasRef.value
         if (!el) return
@@ -267,11 +271,11 @@ export const useCanvasInteraction = (
         tooltipX.value = rect.left + canvasPos.x
         tooltipY.value = rect.top + canvasPos.y
         tooltipVisible.value = true
-      } else if (!analysisStore.hoveredHoleInfo && !analysisStore.locatedHoleInfo && !analysisStore.locatedParticleInfo) {
+      } else if (!interactionStore.hoveredHoleInfo && !interactionStore.locatedHoleInfo && !interactionStore.locatedParticleInfo) {
         tooltipVisible.value = false
       }
     })
-    watch(() => analysisStore.locatedParticleInfo, (info) => {
+    watch(() => interactionStore.locatedParticleInfo, (info) => {
       if (info && info.centerX && info.centerY) {
         const el = imageCanvasRef.value
         if (!el) return
@@ -280,7 +284,7 @@ export const useCanvasInteraction = (
         tooltipX.value = rect.left + canvasPos.x
         tooltipY.value = rect.top + canvasPos.y
         tooltipVisible.value = true
-      } else if (!analysisStore.hoveredHoleInfo && !analysisStore.locatedHoleInfo && !analysisStore.locatedCrackInfo) {
+      } else if (!interactionStore.hoveredHoleInfo && !interactionStore.locatedHoleInfo && !interactionStore.locatedCrackInfo) {
         tooltipVisible.value = false
       }
     })

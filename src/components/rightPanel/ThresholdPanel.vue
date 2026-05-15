@@ -115,11 +115,13 @@
 import { computed } from 'vue'
 import { Minus, Plus } from '@element-plus/icons-vue'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { useMaskStore } from '@/stores/maskStore'
 const analysisStore = useAnalysisStore()
+  const maskStore = useMaskStore()
 
 // 点击取色前清空旧蒙版，避免残留干扰视觉
 const startPickingColor = () => {
-  analysisStore.clearTargetMask()
+  maskStore.clearTargetMask()
   analysisStore.isPickingColor = !analysisStore.isPickingColor
 }
 

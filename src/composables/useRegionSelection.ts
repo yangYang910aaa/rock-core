@@ -1,4 +1,3 @@
-// src/composables/useRegionSelection.ts
 import { ref, type Ref } from 'vue'
 import { useAnalysisStore, type AnalysisRegion } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
@@ -38,7 +37,6 @@ export const useRegionSelection = (
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // 直接用你原来代码里的坐标转换逻辑，最稳妥
     const getCanvasCoords = (region: AnalysisRegion) => {
       const scaleX = imageToCanvasCoords(1, 0).x - imageToCanvasCoords(0, 0).x
       const scaleY = imageToCanvasCoords(0, 1).y - imageToCanvasCoords(0, 0).y

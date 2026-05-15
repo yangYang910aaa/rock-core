@@ -30,7 +30,7 @@
         :position="holeCardPos"
         :unit-scale="unitScale"
         :current-unit="currentUnit"
-        @close="analysisStore.clearHoleSelection()"
+        @close="interactionStore.clearHoleSelection()"
       />
       <!-- 裂缝点击编辑卡片 -->
       <EditCard
@@ -41,7 +41,7 @@
         :position="crackCardPos"
         :unit-scale="unitScale"
         :current-unit="currentUnit"
-        @close="analysisStore.clearCrackSelection()"
+        @close="interactionStore.clearCrackSelection()"
       />
       <!-- 颗粒点击编辑卡片 -->
       <EditCard
@@ -52,7 +52,7 @@
         :position="particleCardPos"
         :unit-scale="unitScale"
         :current-unit="currentUnit"
-        @close="analysisStore.clearParticleSelection()"
+        @close="interactionStore.clearParticleSelection()"
       />
 
       <!-- 三层 Canvas 容器 -->
@@ -70,7 +70,7 @@
         <canvas
           ref="targetMaskCanvasRef"
           class="mask-canvas target-mask"
-          v-show="analysisStore.showMaskOverlay"
+          v-show="maskStore.showMaskOverlay"
         />
       </div>
 
@@ -104,11 +104,15 @@ import { storeToRefs } from 'pinia'
 import { useImageCanvasCore } from '@/composables/useImageCanvasCore'
 import { useRegionSelection } from '@/composables/useRegionSelection'
 import { useCalibrate } from '@/composables/useCalibrate'
+import { useMaskStore } from '@/stores/maskStore'
+import { useInteractionStore } from '@/stores/interactionStore'
 import { useCanvasInteraction } from '@/composables/useCanvasInteraction'
 import CanvasTooltip from './imageCanvas/CanvasTooltip.vue'
 import EditCard from './imageCanvas/EditCard.vue'
 
 const imageStore = useImageStore()
+  const maskStore = useMaskStore()
+  const interactionStore = useInteractionStore()
 const analysisStore = useAnalysisStore()
 
 const { isCalibrating, scaleType } = storeToRefs(imageStore)

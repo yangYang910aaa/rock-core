@@ -109,9 +109,11 @@
 // ----
 import { ref, computed, watch, nextTick } from 'vue'
 import { useAnalysisStore, type ParticleInfo } from '@/stores/analysisStore'
+import { useInteractionStore } from '@/stores/interactionStore'
 import { useImageStore } from '@/stores/imageStore'
 
 const analysisStore = useAnalysisStore()
+  const interactionStore = useInteractionStore()
 const imageStore = useImageStore()
 
 // ----
@@ -141,7 +143,7 @@ const open = () => {
 }
 
 const locateParticle = (row: ParticleInfo) => {
-  analysisStore.setLocatedParticle({ index: row.index, diameter: row.diameter, area: row.area, centerX: row.centerX, centerY: row.centerY })
+  interactionStore.setLocatedParticle({ index: row.index, diameter: row.diameter, area: row.area, centerX: row.centerX, centerY: row.centerY })
   visible.value = false
 }
 

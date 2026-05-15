@@ -1,6 +1,8 @@
 import { ref, nextTick, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useImageStore } from '@/stores/imageStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { useMaskStore } from '@/stores/maskStore'
+import { useInteractionStore } from '@/stores/interactionStore'
 import { storeToRefs } from 'pinia'
 import cv from '@techstark/opencv-js'
 import { maskToVisualWithHighlight } from '@/utils/opencv/core'
@@ -15,8 +17,12 @@ export const useImageCanvasCore = () => {
   // ==========================================
   const imageStore = useImageStore()
   const analysisStore = useAnalysisStore()
+  const maskStore = useMaskStore()
+  const interactionStore = useInteractionStore()
   const { processedImageDataUrl } = storeToRefs(imageStore)
-  const { targetMaskMat, hoveredHoleIndex, locatedHoleIndex, hoveredCrackIndex, locatedCrackIndex, hoveredParticleIndex, locatedParticleIndex, binaryMaskMat, analysisRegion, sourceImageSize } = storeToRefs(analysisStore)
+  const { analysisRegion } = storeToRefs(analysisStore)
+  const { targetMaskMat, binaryMaskMat, sourceImageSize } = storeToRefs(maskStore)
+  const { hoveredHoleIndex, locatedHoleIndex, hoveredCrackIndex, locatedCrackIndex, hoveredParticleIndex, locatedParticleIndex } = storeToRefs(interactionStore)
 
   // ==========================================
   // 2. DOM 引用
@@ -171,7 +177,7 @@ export const useImageCanvasCore = () => {
 
     // 裂缝模式：在中心绘制蓝色十字标记（避免轮廓索引匹配问题）
     if (analysisStore.currentMode === 'crack') {
-      const crackCenter = analysisStore.locatedCrackInfo || analysisStore.hoveredCrackInfo
+      const crackCenter = interactionStore.locatedCrackInfo || interactionStore.hoveredCrackInfo
       if (crackCenter && crackCenter.centerX && crackCenter.centerY) {
         const cx = crackCenter.centerX * (drawWidth / sourceImageSize.value.width) + drawX
         const cy = crackCenter.centerY * (drawHeight / sourceImageSize.value.height) + drawY

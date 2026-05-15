@@ -20,7 +20,7 @@
       <el-button type="warning" block class="panel-btn" @click="handleReset"><el-icon><Refresh /></el-icon>重置分析</el-button>
       <el-button type="primary" block class="panel-btn" @click="handleStartAnalysis" :loading="analysisStore.isAnalyzing"><el-icon><Search /></el-icon>开始分析</el-button>
       <div class="mask-toggle-row">
-        <el-switch v-model="analysisStore.showMaskOverlay" size="small" />
+        <el-switch v-model="maskStore.showMaskOverlay" size="small" />
         <span class="mask-toggle-label">是否显示蒙版</span>
       </div>
     </div>
@@ -40,6 +40,7 @@
 import { ref, watch } from 'vue'
 import { DocumentAdd, Refresh, ArrowDown } from '@element-plus/icons-vue'
 import { useAnalysisStore, type CrackResults, type HoleResults, type ParticleResults } from '@/stores/analysisStore'
+import { useMaskStore } from '@/stores/maskStore'
 import { useImageStore } from '@/stores/imageStore'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
@@ -50,16 +51,18 @@ import ThresholdPanel from './rightPanel/ThresholdPanel.vue'
 import ResultsPanel from './rightPanel/ResultsPanel.vue'
 
 const analysisStore = useAnalysisStore()
+const maskStore = useMaskStore()
 const { handleExportReport } = useReportExport()
 const imageStore = useImageStore()
 
 const {
-  targetMaskMat,
   currentMode,
   holeThreshold,
   crackThreshold,
   particleThreshold,
 } = storeToRefs(analysisStore)
+
+const { targetMaskMat } = storeToRefs(maskStore)
 
 const activeNames = ref<string[]>(['2'])
 
@@ -107,7 +110,7 @@ const handleReset = () => {
   }
   imageStore.resetImage()
   analysisStore.resetAll()
-  analysisStore.clearTargetMask()
+  maskStore.clearTargetMask()
   setTimeout(() => { isResetting.value = false }, 300)
   ElMessage.success('重置成功')
 }
@@ -171,7 +174,7 @@ watch(() => [
 watch(() => currentMode.value, (newMode, oldMode) => {
   if (analysisStore.isLoadingProject) return
   if (newMode !== oldMode) {
-    analysisStore.clearTargetMask()
+    maskStore.clearTargetMask()
     analysisStore.resetResults()
   }
 })
@@ -186,7 +189,7 @@ watch(() => analysisStore.regionMode, (newMode, oldMode) => {
   if (analysisStore.isLoadingProject) return
   if (oldMode === 'full' && newMode === 'rect') {
     analysisStore.resetResults()
-    analysisStore.clearTargetMask()
+    maskStore.clearTargetMask()
   }
 })
 
@@ -214,7 +217,7 @@ watch(() => analysisStore.contiguousRegionEnabled, () => {
 watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
   if (analysisStore.isLoadingProject) return
   if (newUrl && newUrl !== oldUrl) {
-    analysisStore.clearTargetMask()
+    maskStore.clearTargetMask()
   }
 })
 </script>
@@ -319,7 +322,14 @@ watch(() => imageStore.processedImageDataUrl, (newUrl, oldUrl) => {
 }
 
 /* 滚动条 */
-.panel-content::-webkit-scrollbar { width: 6px; }
-.panel-content::-webkit-scrollbar-thumb { background-color: #dcdfe6; border-radius: 3px; }
-.panel-content::-webkit-scrollbar-track { background-color: #f5f7fa; }
+.panel-content::-webkit-scrollbar {
+   width: 6px; 
+}
+.panel-content::-webkit-scrollbar-thumb {
+   background-color: #dcdfe6; 
+   border-radius: 3px; 
+}
+.panel-content::-webkit-scrollbar-track {
+   background-color: #f5f7fa; 
+}
 </style>

@@ -121,9 +121,11 @@
 // ----
 import { ref, computed, watch, nextTick } from 'vue'
 import { useAnalysisStore, type HoleInfo } from '@/stores/analysisStore'
+import { useInteractionStore } from '@/stores/interactionStore'
 import { useImageStore } from '@/stores/imageStore'
 
 const analysisStore = useAnalysisStore()
+  const interactionStore = useInteractionStore()
 const imageStore = useImageStore()
 
 // ----
@@ -154,7 +156,7 @@ const open = () => {
 }
 
 const locateHole = (row: HoleInfo) => {
-  analysisStore.setLocatedHole({ index: row.index, diameter: row.diameter, area: row.area, centerX: row.centerX, centerY: row.centerY })
+  interactionStore.setLocatedHole({ index: row.index, diameter: row.diameter, area: row.area, centerX: row.centerX, centerY: row.centerY })
   visible.value = false
 }
 
