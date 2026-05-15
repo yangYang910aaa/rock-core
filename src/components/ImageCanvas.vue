@@ -232,34 +232,78 @@ watch(() => imageDrawParams.value, () => {
 .image-canvas-wrapper {
   width: 100%; height: 100%;
   background-color: #f0f2f5;
-  display: flex; align-items: center; justify-content: center;
-  position: relative; overflow: hidden;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  position: relative; 
+  overflow: hidden;
 }
-.empty-state { text-align: center; color: #909399; }
-.empty-text { margin-top: 16px; font-size: 16px; }
+.empty-state { 
+  text-align: center; 
+  color: #909399; 
+}
+.empty-text { 
+  margin-top: 16px; 
+  font-size: 16px; 
+}
 .image-container {
-  width: 100%; height: 100%;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 20px; box-sizing: border-box;
+  width: 100%; 
+  height: 100%;
+  display: flex; 
+  flex-direction: column;
+  align-items: center; 
+  justify-content: center;
+  padding: 20px; 
+  box-sizing: border-box;
 }
 .canvas-wrapper {
-  position: relative; width: 100%; height: 85%;
+  position: relative; 
+  width: 100%; 
+  height: 85%;
   background-color: #2b2b2b;
   border: 1px solid #dcdfe6;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  border-radius: 4px; overflow: hidden;
+  border-radius: 4px; 
+  overflow: hidden;
 }
-.image-canvas { position: absolute; top: 0; left: 0; z-index: 1; cursor: crosshair; }
-.mask-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
-.region-mask { z-index: 2; }
-.target-mask { z-index: 3; }
+.image-canvas { 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  z-index: 1; 
+  cursor: crosshair; 
+}
+.mask-canvas { 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  pointer-events: none; 
+}
+.region-mask { 
+  z-index: 2; 
+}
+.target-mask { 
+  z-index: 3; 
+}
 .image-info {
-  margin-top: 16px; padding: 8px 16px;
-  background-color: #fff; border: 1px solid #e4e7ed;
-  border-radius: 4px; color: #606266; font-size: 12px;
-  max-width: 90%; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; display: flex; align-items: center;
+  margin-top: 16px; 
+  padding: 8px 16px;
+  background-color: #fff; 
+  border: 1px solid #e4e7ed;
+  border-radius: 4px; 
+  color: #606266; 
+  font-size: 12px;
+  max-width: 90%; 
+  overflow: hidden; 
+  text-overflow: ellipsis;
+  white-space: nowrap; 
+  display: flex; 
+  align-items: center;
 }
-.image-tag { display: flex; align-items: center; gap: 4px; font-weight: 500; }
+.image-tag { 
+  display: flex; 
+  align-items: center; 
+  gap: 4px; 
+  font-weight: 500; 
+}
 </style>

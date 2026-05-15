@@ -29,7 +29,7 @@ import ImageCanvas from '@/components/ImageCanvas.vue'
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import RightPanel from '@/components/RightPanel.vue'
 import PreprocessDialogs from '@/components/leftSidebar/PreprocessDialogs.vue'
-import ReportPreviewDialog from '@/components/ReportPreviewDialog.vue'
+import ReportPreviewDialog from '@/components/rightPanel/ReportPreviewDialog.vue'
 </script>
 
 <style scoped>

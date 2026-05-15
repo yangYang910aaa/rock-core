@@ -105,8 +105,13 @@ defineEmits<{ clearLocated: [] }>()
   justify-content: space-between;
   font-size: 12px;
 }
-.tooltip-label { color: #606266; }
-.tooltip-value { color: #303133; font-weight: 500; }
+.tooltip-label { 
+  color: #606266; 
+ }
+.tooltip-value { 
+  color: #303133; 
+  font-weight: 500; 
+ }
 
 .tooltip-enter-active, .tooltip-leave-active {
   transition: opacity 0.15s ease, transform 0.15s ease;

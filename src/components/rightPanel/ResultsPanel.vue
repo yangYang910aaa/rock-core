@@ -90,9 +90,9 @@ import { ref, computed } from 'vue'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { useImageStore } from '@/stores/imageStore'
 import HoleDistributionChart from './HoleDistributionChart.vue'
-import HoleDetailDialog from './HoleDetailDialog.vue'
-import CrackDetailDialog from './CrackDetailDialog.vue'
-import ParticleDetailDialog from './ParticleDetailDialog.vue'
+import HoleDetailDialog from './dialog/HoleDetailDialog.vue'
+import CrackDetailDialog from './dialog/CrackDetailDialog.vue'
+import ParticleDetailDialog from './dialog/ParticleDetailDialog.vue'
 
 const analysisStore = useAnalysisStore()
 const imageStore = useImageStore()
